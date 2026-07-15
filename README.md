@@ -2,7 +2,7 @@
 
 A beautiful, modern chat interface for AI agents — built with Next.js 14, TypeScript, and Tailwind CSS.
 
-**Live Demo**: [agent-chat-ui.vercel.app](https://agent-chat-ui.vercel.app) (coming soon)
+**Live Demo**: [agent-chat-ui.vercel.app](https://agent-chat-ui.vercel.app)
 
 ![Agent Chat UI](public/screenshot.png)
 
