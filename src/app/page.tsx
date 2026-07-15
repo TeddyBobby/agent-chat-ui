@@ -28,7 +28,7 @@ export default function Home() {
   }, []);
 
   const handleNewChat = () => {
-    const conv = createConversation('New Chat', model);
+    const conv = createConversation('新对话', model);
     refreshConversations();
     setActiveId(conv.id);
   };
@@ -48,7 +48,7 @@ export default function Home() {
   const handleSend = async (content: string) => {
     let convId = activeId;
     if (!convId) {
-      const conv = createConversation('New Chat', model);
+      const conv = createConversation('新对话', model);
       convId = conv.id;
       setActiveId(convId);
     }
