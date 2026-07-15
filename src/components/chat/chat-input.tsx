@@ -51,7 +51,7 @@ export function ChatInput({
         <div className="mb-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
           <div className="flex gap-3 items-center flex-wrap">
             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Model
+              模型
               <select
                 value={selectedModel}
                 onChange={(e) => onModelChange(e.target.value)}
@@ -65,7 +65,7 @@ export function ChatInput({
               </select>
             </label>
             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              API Key
+              API 密钥
               <input
                 type="password"
                 value={apiKey}
@@ -76,7 +76,7 @@ export function ChatInput({
             </label>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            Uses OpenAI-compatible API. Works with OpenAI, Anthropic, DeepSeek, Ollama, and more.
+            兼容 OpenAI 格式 API，支持 OpenAI、Anthropic、DeepSeek、Ollama 等。
           </p>
         </div>
       )}
@@ -86,7 +86,7 @@ export function ChatInput({
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          title="Settings"
+          title="设置"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3" />
@@ -99,7 +99,7 @@ export function ChatInput({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Send a message..."
+          placeholder="输入消息..."
           disabled={disabled}
           rows={1}
           className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
