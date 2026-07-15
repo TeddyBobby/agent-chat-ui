@@ -22,11 +22,11 @@ export function MessageList({ messages, streaming }: MessageListProps) {
         <div className="text-center max-w-md">
           <div className="text-5xl mb-4">🤖</div>
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            Agent Chat UI
+            AI 助手聊天
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Chat with AI agents. Supports streaming, tool calls, and multiple models.
-            Enter your API key in settings and start a conversation.
+            与 AI Agent 对话，支持流式输出、工具调用可视化和多模型切换。
+            点击左下角设置图标输入 API 密钥开始。
           </p>
         </div>
       </div>
