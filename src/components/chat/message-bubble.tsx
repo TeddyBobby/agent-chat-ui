@@ -22,13 +22,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             : 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
         }`}
       >
-        {isUser ? 'Y' : 'AI'}
+        {isUser ? '我' : 'AI'}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0 overflow-hidden">
         <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          {isUser ? 'You' : 'Agent'}
+          {isUser ? '我' : '助手'}
         </div>
 
         {isUser ? (
