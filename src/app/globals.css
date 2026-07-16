@@ -5,7 +5,6 @@
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
   }
-
   .dark * {
     scrollbar-color: #475569 transparent;
   }
@@ -15,7 +14,41 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
 }
-
 .animate-bounce {
   animation: bounce 0.6s ease-in-out infinite;
 }
+
+/* ── Code highlighting (highlight.js GitHub Dark theme) ── */
+pre {
+  border-radius: 0.75rem !important;
+  margin: 0.75rem 0 !important;
+  overflow-x: auto;
+}
+pre code {
+  font-size: 0.8125rem !important;
+  line-height: 1.6 !important;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace !important;
+  padding: 1rem !important;
+  display: block;
+  background: #1e1e2e !important;
+  color: #cdd6f4 !important;
+}
+
+/* Inline code */
+:not(pre) > code {
+  font-size: 0.8125rem;
+  background: #f1f5f9;
+  color: #e11d48;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.3rem;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+.dark :not(pre) > code {
+  background: #1e293b;
+  color: #f472b6;
+}
+
+/* ── Prose overrides ── */
+.prose p { margin: 0.25rem 0; }
+.prose ul, .prose ol { margin: 0.25rem 0; padding-left: 1.5rem; }
+.prose li { margin: 0.125rem 0; }
