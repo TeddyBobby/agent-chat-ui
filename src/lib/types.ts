@@ -36,5 +36,5 @@ export const MODELS: ModelInfo[] = [
   { id: 'claude-sonnet-4', name: 'Claude Sonnet 4', provider: 'Anthropic' },
   { id: 'deepseek-v4', name: 'DeepSeek V4', provider: 'DeepSeek' },
   { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'Google' },
-  { id: 'ollama-local', name: 'Local Model', provider: 'Ollama' },
+  { id: 'gemma4:e4b', name: 'Gemma 4 (本地)', provider: 'Ollama' },
 ];
