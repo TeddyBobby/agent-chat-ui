@@ -45,7 +45,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               prose-strong:text-gray-900 dark:prose-strong:text-gray-100
               prose-blockquote:border-l-violet-400 prose-blockquote:bg-gray-100 dark:prose-blockquote:bg-gray-800/50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg
               prose-table:border prose-table:rounded-lg prose-th:bg-gray-100 dark:prose-th:bg-gray-800 prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2
-              [&_pre]:!bg-[#1e1e2e] [&_pre]:!rounded-xl [&_pre]:!shadow-sm
+              [&_pre]:!rounded-xl [&_pre]:!shadow-sm
               [&_pre_code]:!bg-transparent [&_pre_code]:!p-4">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
