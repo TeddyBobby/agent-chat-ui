@@ -81,6 +81,12 @@ export default function Home() {
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }));
 
+      // Determine base URL based on model
+      let baseUrl = undefined;
+      if (model === 'gemma4:e4b') {
+        baseUrl = 'http://localhost:11434/v1';
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,6 +94,7 @@ export default function Home() {
           messages,
           model,
           apiKey: apiKey || undefined,
+          baseUrl,
         }),
       });
 
