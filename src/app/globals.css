@@ -18,7 +18,7 @@
   animation: bounce 0.6s ease-in-out infinite;
 }
 
-/* ── Code highlighting (highlight.js GitHub Dark theme) ── */
+/* ── Code blocks ── */
 pre {
   border-radius: 0.75rem !important;
   margin: 0.75rem 0 !important;
@@ -30,8 +30,6 @@ pre code {
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace !important;
   padding: 1rem !important;
   display: block;
-  background: #1e1e2e !important;
-  color: #cdd6f4 !important;
 }
 
 /* Inline code */
