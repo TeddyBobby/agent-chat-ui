@@ -21,6 +21,10 @@ const STATUS_CONFIG: Record<string, { icon: string; border: string; bg: string; 
   },
 };
 
+/**
+ * tool-call-card component.
+ * @component
+ */
 export function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const config = STATUS_CONFIG[toolCall.status] || STATUS_CONFIG.running;
 
