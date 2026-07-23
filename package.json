@@ -2,11 +2,38 @@
   "name": "agent-chat-ui",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron": "npm run build && electron .",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:all": "npm run build && electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "dev.teddybobby.piagent",
+    "productName": "PiAgent",
+    "files": [
+      ".next/**/*",
+      "public/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json",
+      "next.config.ts"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    }
   },
   "dependencies": {
     "https-proxy-agent": "^9.1.0",
@@ -24,6 +51,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
