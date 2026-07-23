@@ -1,23 +1,23 @@
-# {{Pi}}Agent — AI Coding Agent
+# {{Pi}}Agent — AI 编程助手
 
-A beautiful, local-first AI coding agent interface. Chat with LLMs, attach files, browse your filesystem, and watch tools execute in real-time.
+基于 PiAgent 框架的 AI 编程助手界面。对话式操作文件系统，实时观看工具执行过程。
 
-Built with Next.js, TypeScript, and Tailwind CSS.
+Next.js + TypeScript + Tailwind CSS 构建。
 
 ![{{Pi}}Agent](public/screenshot.png)
 
-## Features
+## 功能
 
-- **Agent-driven coding** — read, write, edit, search files and run commands in your project directory
-- **Project directory selector** — pick any folder via built-in file browser; agent operates within that scope
-- **Structured streaming** — tool calls render as live cards with running/completed/error states
-- **File attachments** — drag or select files, previewed inline with line numbers (non-text files show icon only)
-- **Multi-model** — OpenAI, DeepSeek, Ollama, or any OpenAI-compatible API
-- **Markdown rendering** — GFM tables, code blocks with syntax highlighting
-- **Persistent settings** — model, API key, and project directory survive refreshes
-- **Dark mode** — zinc-based premium dark theme
+- **Agent 编程** — 在项目目录中读、写、编辑、搜索文件，执行命令
+- **项目目录选择** — 内置文件浏览器，选择任意目录作为工作区
+- **结构化流式输出** — 工具调用以实时卡片展示（执行中 / 已完成 / 失败）
+- **文件上传** — 拖拽或选择文件，文本文件带行号预览，非文本文件只显示图标
+- **多模型支持** — OpenAI、DeepSeek、Ollama 或任意兼容 OpenAI 格式的 API
+- **Markdown 渲染** — GFM 表格、代码块语法高亮
+- **设置持久化** — 模型、API Key、项目目录刷新后自动恢复
+- **暗色主题** — zinc 色调 premium 暗色设计
 
-## Quick Start
+## 快速开始
 
 ```bash
 git clone https://github.com/TeddyBobby/agent-chat-ui.git
@@ -26,170 +26,167 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3001, click the model name to open settings, pick a model and enter your API key.
+打开 http://localhost:3001，点击底部模型名称展开设置，选择模型并输入 API Key。
 
-### Ollama (local)
+### 本地模型 (Ollama)
 
 ```bash
 ollama pull gemma4
 npm run dev
 ```
 
-Select "Gemma 4 (本地)" in the model dropdown — no API key needed.
+模型下拉选择「Gemma 4 (本地)」，无需 API Key。
 
 ### DeepSeek
 
-1. Get an API key from [platform.deepseek.com](https://platform.deepseek.com)
-2. Select "DeepSeek V4 Flash" or "DeepSeek V4 Pro"
-3. Enter your key — it's saved locally
+1. 从 [platform.deepseek.com](https://platform.deepseek.com) 获取 API Key
+2. 选择「DeepSeek V4 Flash」或「DeepSeek V4 Pro」
+3. 输入 Key，自动保存
 
-Or set `DEEPSEEK_API_KEY` in `.env.local`.
+也可以在 `.env.local` 中设置 `DEEPSEEK_API_KEY`。
 
-## Configuration
+## 配置
 
-Copy `.env.example` to `.env.local`:
+复制 `.env.example` 为 `.env.local`：
 
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | Default API key |
-| `OPENAI_BASE_URL` | Custom base URL (default: `https://api.openai.com/v1`) |
-| `DEEPSEEK_API_KEY` | DeepSeek API key |
-| `DEEPSEEK_BASE_URL` | DeepSeek base URL (default: `https://api.deepseek.com/v1`) |
+| 变量 | 说明 |
+|------|------|
+| `OPENAI_API_KEY` | 默认 API Key |
+| `OPENAI_BASE_URL` | 自定义 API 地址（默认 `https://api.openai.com/v1`） |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key |
+| `DEEPSEEK_BASE_URL` | DeepSeek 地址（默认 `https://api.deepseek.com/v1`） |
 
-## Architecture — PiAgent Framework
+## 架构 — PiAgent 框架
 
-The agent is powered by **PiAgent**, a minimal ReAct (Reasoning + Acting) loop with native function calling. All agent logic lives in ~250 lines of TypeScript with zero framework dependencies.
+{{Pi}}Agent 的核心是一个名为 **PiAgent** 的轻量级 Agent 框架。所有 Agent 逻辑约 250 行 TypeScript，零框架依赖，基于原生 function calling 实现 ReAct（推理 + 行动）循环。
 
-### Core Loop
+### 核心循环
 
 ```
-User Message → System Prompt + Tool Definitions → LLM (function calling)
-                                                      │
-                                    ┌─────────────────┘
-                                    ▼
-                            LLM returns tool_calls?
-                               │          │
-                              YES         NO
-                               │          │
-                               ▼          ▼
-                         Execute tools   Final answer
-                               │          │
-                               ▼          │
-                         Tool results     │
-                               │          │
-                               └──────────┘
-                                    │
-                                    ▼
-                            Send back to LLM
-                              (loop until done or max steps)
+用户消息 → 系统提示词 + 工具定义 → LLM（function calling）
+                                          │
+                        ┌─────────────────┘
+                        ▼
+                LLM 返回 tool_calls？
+                   │          │
+                  YES         NO
+                   │          │
+                   ▼          ▼
+              执行工具      最终回答
+                   │
+                   ▼
+              工具结果
+                   │
+                   └──────→ 送回 LLM
+                        （循环直到完成或达到最大步数）
 ```
 
-### Key Abstractions
+### 核心抽象
 
-**`Tool`** — a typed interface every tool must implement:
+**`Tool`** — 工具接口，所有工具必须实现：
 
 ```ts
 interface Tool {
-  name: string;
-  description: string;
-  schema: ToolSchema;           // JSON Schema for arguments
-  run(args: Record<string, unknown>): Promise<string>;
+  name: string;                   // 工具名
+  description: string;            // 描述（写入 system prompt）
+  schema: ToolSchema;             // 参数 JSON Schema
+  run(args: Record<string, unknown>): Promise<string>;  // 执行逻辑
 }
 ```
 
-**`PiAgent`** — the agent runtime:
+**`PiAgent`** — Agent 运行时：
 
 ```ts
 const agent = new PiAgent({ apiKey, model, baseURL, maxSteps });
 agent.use(readTool).use(writeTool).use(searchTool).use(execTool);
-agent.on((event) => { /* stream events to UI */ });
-const answer = await agent.run("find all TODOs and create a report");
+agent.on((event) => { /* 流式事件 → UI */ });
+const answer = await agent.run("找出所有 TODO 注释，生成报告");
 ```
 
-1. Builds the system prompt with tool descriptions
-2. Sends messages + tool definitions to the LLM via native function calling
-3. If the LLM returns `tool_calls` → executes tools → feeds results back → loops
-4. If the LLM returns plain text → that's the final answer
+1. 构建系统提示词，注入工具说明
+2. 将消息 + 工具定义发送给 LLM（原生 function calling）
+3. LLM 返回 `tool_calls` → 执行工具 → 将结果反馈给 LLM → 循环
+4. LLM 返回纯文本 → 最终回答
 
-**Tools** are workspace-aware. Each tool resolves relative paths against the user's chosen project directory:
+**工具** 是工作区感知的。所有相对路径基于用户选择的项目目录解析：
 
 ```
 createTools(workdir) → [read_file, write_file, edit_file, search_code, run_command]
 ```
 
-### Streaming Protocol
+### 流式协议
 
-The API endpoint emits structured SSE events, not raw text:
+API 端点输出结构化的 SSE 事件，而非原始文本：
 
 ```
 data: {"type":"start","workdir":"/Users/me/project"}
 data: {"type":"tool_call","id":"tc-1","name":"read_file","arguments":{"path":"src/index.ts"}}
-data: {"type":"tool_result","id":"tc-1","result":"[src/index.ts] L1-L50 / 200 lines\n..."}
+data: {"type":"tool_result","id":"tc-1","result":"[src/index.ts] L1-L50 / 200 行\n..."}
 data: {"type":"tool_call","id":"tc-2","name":"write_file","arguments":{...}}
 data: {"type":"tool_result","id":"tc-2","result":"✅ 文件已创建: report.md\n..."}
-data: {"type":"text","content":"Found 5 TODOs, report written to report.md"}
+data: {"type":"text","content":"找到 5 个 TODO，报告已写入 report.md"}
 data: {"type":"done"}
 ```
 
-The frontend parses these events in real-time — tool calls appear as live cards, update from ⏳ running to ✓ completed as results arrive, and the final text streams in via markdown renderer.
+前端实时解析这些事件 — 工具调用以实时卡片形式出现，随结果返回从 ⏳ 执行中更新为 ✓ 已完成，最终文本通过 Markdown 渲染器流式展示。
 
-### Data Flow
+### 数据流
 
 ```
-Browser                          Next.js API Route                  LLM
+浏览器                          Next.js API Route                  LLM
 ──────                          ──────────────────                  ───
-User types message ──────────►  POST /api/chat
+用户输入 ────────────────────►  POST /api/chat
                                 │
                                 ├─ createTools(projectDir)
                                 ├─ new PiAgent(config)
-                                ├─ agent.on(callback) ────► emit SSE events ──► Browser renders
+                                ├─ agent.on(callback) ────► 发射 SSE 事件 ──► 浏览器渲染
                                 └─ agent.run(task)
                                       │
-                                      ├─ callLLM() ──────────────────────────► POST /chat/completions
-                                      │                                               │
-                                      │◄────────────────────────────────────── tool_calls or text
+                                      ├─ callLLM() ──────────────────────► POST /chat/completions
+                                      │                                           │
+                                      │◄────────────────────────────────── tool_calls 或 text
                                       │
-                                      ├─ execute tools (read/write/search/exec)
+                                      ├─ 执行工具（read/write/search/exec）
                                       │
-                                      └─ loop until answer or maxSteps
+                                      └─ 循环直至完成或达到最大步数
 ```
 
-## Project Structure
+## 项目结构
 
 ```
 src/
 ├── app/
 │   ├── api/
-│   │   ├── chat/route.ts   # SSE streaming agent endpoint
-│   │   └── fs/route.ts     # Filesystem browser API
+│   │   ├── chat/route.ts   # SSE 流式 Agent 端点
+│   │   └── fs/route.ts     # 文件系统浏览 API
 │   ├── layout.tsx
-│   ├── page.tsx            # Main chat + SSE event handling
+│   ├── page.tsx            # 主聊天页 + SSE 事件处理
 │   └── globals.css
 ├── components/chat/
-│   ├── chat-input.tsx      # Input + file upload + settings
-│   ├── directory-picker.tsx # Filesystem browser modal
+│   ├── chat-input.tsx      # 输入框 + 文件上传 + 设置
+│   ├── directory-picker.tsx # 文件系统浏览弹窗
 │   ├── message-list.tsx
-│   ├── message-bubble.tsx  # Message + file cards + tool summary
+│   ├── message-bubble.tsx  # 消息 + 文件卡片 + 工具摘要
 │   ├── sidebar.tsx
-│   └── tool-call-card.tsx  # Compact collapsible tool cards
+│   └── tool-call-card.tsx  # 紧凑可折叠工具卡片
 ├── lib/
 │   ├── agent/
-│   │   ├── core.ts         # PiAgent: ReAct loop with function calling
-│   │   └── tools.ts        # read_file, write_file, edit_file, search_code, run_command
-│   ├── store.ts            # localStorage persistence
-│   └── types.ts            # Types + model registry + SSE event types
+│   │   ├── core.ts         # PiAgent: ReAct 循环 + function calling
+│   │   └── tools.ts        # read_file、write_file、edit_file、search_code、run_command
+│   ├── store.ts            # localStorage 持久化
+│   └── types.ts            # 类型定义 + 模型注册 + SSE 事件类型
 ```
 
-## Tech Stack
+## 技术栈
 
-| Layer | Tech |
-|-------|------|
-| Framework | Next.js 16 (App Router + Turbopack) |
-| Language | TypeScript |
-| Styling | Tailwind CSS |
+| 层 | 技术 |
+|----|------|
+| 框架 | Next.js 16 (App Router + Turbopack) |
+| 语言 | TypeScript |
+| 样式 | Tailwind CSS |
 | Markdown | react-markdown + remark-gfm + rehype-highlight |
-| Streaming | SSE (Server-Sent Events) with Node.js Readable |
-| Storage | localStorage |
+| 流式 | SSE (Server-Sent Events) + Node.js Readable |
+| 存储 | localStorage |
 
 ## License
 
