@@ -3,50 +3,144 @@
 @layer base {
   * {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: #3f3f46 transparent;
   }
-  .dark * {
-    scrollbar-color: #475569 transparent;
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 }
 
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-.animate-bounce {
-  animation: bounce 0.6s ease-in-out infinite;
+/* ── Animations ── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(99, 102, 241, 0.3); }
 }
 
-/* ── Code blocks ── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ── Typography ── */
 pre {
-  border-radius: 0.75rem !important;
-  margin: 0.75rem 0 !important;
+  border-radius: 0.625rem !important;
+  margin: 0.5rem 0 !important;
   overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
+
 pre code {
   font-size: 0.8125rem !important;
-  line-height: 1.6 !important;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace !important;
-  padding: 1rem !important;
+  line-height: 1.65 !important;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace !important;
+  padding: 0.875rem 1rem !important;
   display: block;
+  background: #0d0d10 !important;
 }
 
-/* Inline code */
 :not(pre) > code {
   font-size: 0.8125rem;
-  background: #f1f5f9;
-  color: #e11d48;
-  padding: 0.15rem 0.4rem;
-  border-radius: 0.3rem;
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-}
-.dark :not(pre) > code {
-  background: #1e293b;
-  color: #f472b6;
+  background: rgba(99, 102, 241, 0.1);
+  color: #a5b4fc;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+  border: 1px solid rgba(99, 102, 241, 0.15);
 }
 
-/* ── Prose overrides ── */
-.prose p { margin: 0.25rem 0; }
-.prose ul, .prose ol { margin: 0.25rem 0; padding-left: 1.5rem; }
-.prose li { margin: 0.125rem 0; }
+/* ── Prose ── */
+.prose {
+  --tw-prose-body: #d4d4d8;
+  --tw-prose-headings: #f4f4f5;
+  --tw-prose-links: #818cf8;
+  --tw-prose-bold: #f4f4f5;
+  --tw-prose-code: #a5b4fc;
+  --tw-prose-quotes: #a1a1aa;
+  --tw-prose-quote-borders: #6366f1;
+  --tw-prose-hr: #27272a;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.prose h1 { font-size: 1.25rem; margin: 0.75rem 0 0.25rem; }
+.prose h2 { font-size: 1.1rem; margin: 0.625rem 0 0.25rem; }
+.prose h3 { font-size: 1rem; margin: 0.5rem 0 0.125rem; }
+.prose p { margin: 0.25rem 0; font-size: 0.875rem; }
+.prose ul, .prose ol { margin: 0.25rem 0; padding-left: 1.25rem; font-size: 0.875rem; }
+.prose li { margin: 0.0625rem 0; }
+.prose blockquote {
+  border-left: 2px solid #6366f1;
+  background: rgba(99, 102, 241, 0.04);
+  padding: 0.375rem 0.875rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+  font-style: normal;
+  font-size: 0.8125rem;
+}
+
+/* ── Tables ── */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid #27272a;
+}
+
+.prose thead {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.prose th {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #a5b4fc;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #3f3f46;
+}
+
+.prose td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #27272a;
+  color: #d4d4d8;
+}
+
+.prose tr:last-child td {
+  border-bottom: none;
+}
+
+.prose tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: #e0e7ff;
+}

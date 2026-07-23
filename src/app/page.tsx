@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from '@/components/chat/sidebar';
 import { MessageList } from '@/components/chat/message-list';
 import { ChatInput } from '@/components/chat/chat-input';
-import { Conversation, Message, ToolCall, MODELS } from '@/lib/types';
+import { Conversation, Message, ToolCall, MODELS, AgentEvent } from '@/lib/types';
 import {
   getConversations,
   createConversation,
@@ -14,12 +14,46 @@ import {
   appendToMessage,
 } from '@/lib/store';
 
+const SETTINGS_KEY = 'agent-chat-ui-settings';
+
+function loadSettings(): { model: string; apiKey: string; workdir: string } {
+  if (typeof window === 'undefined') return { model: MODELS[0].id, apiKey: '', workdir: '' };
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : { model: MODELS[0].id, apiKey: '', workdir: '' };
+  } catch {
+    return { model: MODELS[0].id, apiKey: '', workdir: '' };
+  }
+}
+
+function saveSettings(settings: { model: string; apiKey: string; workdir: string }) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
 export default function Home() {
-  const [conversations, setConversations] = useState<Conversation[]>(() => getConversations());
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [model, setModel] = useState(MODELS[0].id);
   const [apiKey, setApiKey] = useState('');
+  const [workdir, setWorkdir] = useState('');
+  const [hydrated, setHydrated] = useState(false);
+
+  // 客户端挂载后从 localStorage 恢复状态
+  useEffect(() => {
+    setConversations(getConversations());
+    const s = loadSettings();
+    setModel(s.model);
+    setApiKey(s.apiKey);
+    setWorkdir(s.workdir);
+    setHydrated(true);
+  }, []);
+
+  // 设置变更时自动持久化（跳过首次 hydration 前的保存）
+  useEffect(() => {
+    if (hydrated) saveSettings({ model, apiKey, workdir });
+  }, [model, apiKey, workdir, hydrated]);
 
   const activeConv = conversations.find((c) => c.id === activeId) || null;
 
@@ -28,7 +62,7 @@ export default function Home() {
   }, []);
 
   const handleNewChat = () => {
-    const conv = createConversation('新对话', model);
+    const conv = createConversation('新对话', model, workdir);
     refreshConversations();
     setActiveId(conv.id);
   };
@@ -36,7 +70,10 @@ export default function Home() {
   const handleSelect = (id: string) => {
     setActiveId(id);
     const conv = getConversations().find((c) => c.id === id);
-    if (conv) setModel(conv.model);
+    if (conv) {
+      setModel(conv.model);
+      setWorkdir(conv.workdir || '');
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -48,7 +85,7 @@ export default function Home() {
   const handleSend = async (content: string) => {
     let convId = activeId;
     if (!convId) {
-      const conv = createConversation('新对话', model);
+      const conv = createConversation('新对话', model, workdir);
       convId = conv.id;
       setActiveId(convId);
     }
@@ -81,11 +118,9 @@ export default function Home() {
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }));
 
-      // Determine base URL based on model
-      let baseUrl = undefined;
-      if (model === 'gemma4:e4b') {
-        baseUrl = 'http://localhost:11434/v1';
-      }
+      // Determine base URL from model config
+      const modelInfo = MODELS.find((m) => m.id === model);
+      const baseUrl = modelInfo?.baseUrl;
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -93,8 +128,9 @@ export default function Home() {
         body: JSON.stringify({
           messages,
           model,
-          apiKey: apiKey || undefined,
-          baseUrl,
+          apiKey: apiKey || '',
+          baseUrl: baseUrl || undefined,
+          workdir: workdir || undefined,
         }),
       });
 
@@ -135,56 +171,10 @@ export default function Home() {
           if (data === '[DONE]') continue;
 
           try {
-            const parsed = JSON.parse(data);
-            const choice = parsed.choices?.[0];
-
-            if (choice?.delta?.content) {
-              appendToMessage(convId, assistantMsg.id, choice.delta.content);
-              refreshConversations();
-            }
-
-            // Handle tool calls
-            if (choice?.delta?.tool_calls) {
-              for (const tc of choice.delta.tool_calls) {
-                const existingTC = getConversations()
-                  .find((c) => c.id === convId)
-                  ?.messages.find((m) => m.id === assistantMsg.id)
-                  ?.toolCalls?.find((t) => t.id === tc.id);
-
-                if (!existingTC) {
-                  // New tool call
-                  const newTC: ToolCall = {
-                    id: tc.id || crypto.randomUUID(),
-                    name: tc.function?.name || 'unknown',
-                    arguments: JSON.parse(tc.function?.arguments || '{}'),
-                    status: 'running',
-                  };
-                  const msg = getConversations()
-                    .find((c) => c.id === convId)
-                    ?.messages.find((m) => m.id === assistantMsg.id);
-                  if (msg) {
-                    updateMessage(convId, assistantMsg.id, {
-                      toolCalls: [...(msg.toolCalls || []), newTC],
-                    });
-                  }
-                } else if (tc.function?.arguments) {
-                  // Append to existing tool call arguments
-                  existingTC.arguments = {
-                    ...existingTC.arguments,
-                    ...JSON.parse(tc.function.arguments),
-                  };
-                  const msg = getConversations()
-                    .find((c) => c.id === convId)
-                    ?.messages.find((m) => m.id === assistantMsg.id);
-                  if (msg) {
-                    updateMessage(convId, assistantMsg.id, { toolCalls: [...(msg.toolCalls || [])] });
-                  }
-                }
-              }
-              refreshConversations();
-            }
+            const event: AgentEvent = JSON.parse(data);
+            handleAgentEvent(convId, assistantMsg.id, event);
           } catch {
-            // Skip malformed JSON chunks
+            // skip malformed JSON
           }
         }
       }
@@ -198,8 +188,87 @@ export default function Home() {
     }
   };
 
+  /** 处理单个 SSE 事件 */
+  function handleAgentEvent(convId: string, msgId: string, event: AgentEvent) {
+    switch (event.type) {
+      case 'start':
+        // workdir 确认
+        break;
+
+      case 'tool_call': {
+        // 创建新的 tool call（状态 running）
+        const tc: ToolCall = {
+          id: event.id || crypto.randomUUID(),
+          name: event.name,
+          arguments: event.arguments,
+          status: 'running',
+        };
+        const conv = getConversations().find((c) => c.id === convId);
+        const msg = conv?.messages.find((m) => m.id === msgId);
+        if (msg) {
+          updateMessage(convId, msgId, {
+            toolCalls: [...(msg.toolCalls || []), tc],
+          });
+        }
+        refreshConversations();
+        break;
+      }
+
+      case 'tool_result': {
+        // 精确匹配 tool_call ID
+        const conv2 = getConversations().find((c) => c.id === convId);
+        const msg2 = conv2?.messages.find((m) => m.id === msgId);
+        if (!msg2?.toolCalls) break;
+
+        const tcs = [...msg2.toolCalls];
+        const idx = tcs.findIndex((tc) => tc.id === event.id);
+        if (idx === -1) {
+          // 降级：匹配最后一个 running 的
+          for (let i = tcs.length - 1; i >= 0; i--) {
+            if (tcs[i].status === 'running') {
+              tcs[i] = {
+                ...tcs[i],
+                status: event.error ? 'error' : 'completed',
+                result: event.result,
+                error: event.error,
+              };
+              updateMessage(convId, msgId, { toolCalls: tcs });
+              refreshConversations();
+              break;
+            }
+          }
+        } else {
+          tcs[idx] = {
+            ...tcs[idx],
+            status: event.error ? 'error' : 'completed',
+            result: event.result,
+            error: event.error,
+          };
+          updateMessage(convId, msgId, { toolCalls: tcs });
+          refreshConversations();
+        }
+        break;
+      }
+
+      case 'text':
+        // 追加文本内容
+        appendToMessage(convId, msgId, event.content);
+        refreshConversations();
+        break;
+
+      case 'error':
+        appendToMessage(convId, msgId, `\n\n❌ ${event.message}`);
+        refreshConversations();
+        break;
+
+      case 'done':
+        // 流结束
+        break;
+    }
+  }
+
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+    <div className="flex h-screen bg-zinc-950 text-zinc-200">
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
@@ -211,6 +280,14 @@ export default function Home() {
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Workdir banner */}
+        {activeConv?.workdir && (
+          <div className="px-8 py-1.5 bg-indigo-500/5 border-b border-indigo-500/10">
+            <span className="text-[11px] text-indigo-400/80 font-mono tracking-wide">
+              {activeConv.workdir}
+            </span>
+          </div>
+        )}
         <MessageList messages={activeConv?.messages || []} streaming={streaming} />
         <ChatInput
           onSend={handleSend}
@@ -218,6 +295,8 @@ export default function Home() {
           selectedModel={model}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
+          workdir={workdir}
+          onWorkdirChange={setWorkdir}
           disabled={streaming}
         />
       </div>

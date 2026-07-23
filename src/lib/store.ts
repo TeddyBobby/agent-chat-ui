@@ -28,11 +28,12 @@ export function getConversation(id: string): Conversation | undefined {
   return conversations.find((c) => c.id === id);
 }
 
-export function createConversation(title: string, model: string): Conversation {
+export function createConversation(title: string, model: string, workdir: string = ''): Conversation {
   const conv: Conversation = {
     id: crypto.randomUUID(),
     title,
     model,
+    workdir,
     messages: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),

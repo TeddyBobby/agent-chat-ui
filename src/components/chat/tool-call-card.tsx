@@ -1,78 +1,74 @@
 'use client';
 
+import { useState } from 'react';
 import { ToolCall } from '@/lib/types';
 
 interface ToolCallCardProps {
   toolCall: ToolCall;
 }
 
-const STATUS_CONFIG: Record<string, { icon: string; border: string; bg: string; label: string }> = {
-  running: {
-    icon: '⏳', label: '执行中',
-    border: 'border-yellow-400/50', bg: 'bg-yellow-50/80 dark:bg-yellow-950/20',
-  },
-  completed: {
-    icon: '✓', label: '完成',
-    border: 'border-emerald-400/50', bg: 'bg-emerald-50/80 dark:bg-emerald-950/20',
-  },
-  error: {
-    icon: '✗', label: '失败',
-    border: 'border-red-400/50', bg: 'bg-red-50/80 dark:bg-red-950/20',
-  },
+const TOOL_LABELS: Record<string, string> = {
+  read_file: 'Read',
+  write_file: 'Write',
+  edit_file: 'Edit',
+  search_code: 'Search',
+  run_command: 'Run',
 };
 
-/**
- * tool-call-card component.
- * @component
- */
 export function ToolCallCard({ toolCall }: ToolCallCardProps) {
-  const config = STATUS_CONFIG[toolCall.status] || STATUS_CONFIG.running;
+  const [expanded, setExpanded] = useState(false);
+  const label = TOOL_LABELS[toolCall.name] || toolCall.name;
+  const hasDetail = !!(toolCall.result || toolCall.error) && toolCall.status !== 'running';
 
   return (
-    <details className={`border rounded-xl overflow-hidden ${config.border} ${config.bg} shadow-sm`}>
-      <summary className="px-3 py-2 cursor-pointer text-xs font-medium flex items-center gap-2 select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-        <span className="font-mono text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-          {config.icon}
+    <div className="border border-zinc-800/50 rounded-md overflow-hidden bg-zinc-900/30 text-[12px]">
+      {/* Summary row — always visible */}
+      <button
+        onClick={() => hasDetail && setExpanded(!expanded)}
+        className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors ${
+          hasDetail ? 'cursor-pointer hover:bg-zinc-800/30' : 'cursor-default'
+        }`}
+      >
+        {/* Status dot */}
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+          toolCall.status === 'running' ? 'bg-amber-400 animate-pulse' :
+          toolCall.status === 'completed' ? 'bg-emerald-400' :
+          'bg-red-400'
+        }`} />
+
+        {/* Label */}
+        <span className="font-semibold tracking-wider uppercase text-zinc-400 flex-shrink-0">
+          {label}
         </span>
-        <span className="font-mono text-[11px] font-semibold text-gray-700 dark:text-gray-300">
-          {toolCall.name}
+
+        {/* Args preview */}
+        <span className="text-zinc-500 font-mono truncate flex-1">
+          {toolCall.arguments?.path
+            ? String(toolCall.arguments.path).split('/').pop()
+            : toolCall.arguments?.command
+            ? String(toolCall.arguments.command).slice(0, 40)
+            : toolCall.arguments?.pattern
+            ? String(toolCall.arguments.pattern)
+            : ''}
         </span>
-        <span className={`text-[10px] ml-auto px-1.5 py-0.5 rounded-full font-medium ${
-          toolCall.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-          toolCall.status === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
-          'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-        }`}>
-          {config.label}
-        </span>
-      </summary>
-      <div className="px-3 pb-3 space-y-2">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-            参数
-          </div>
-          <pre className="text-[11px] bg-gray-100 dark:bg-gray-900/80 rounded-lg p-2.5 overflow-x-auto font-mono leading-relaxed text-gray-700 dark:text-gray-300">
-            {JSON.stringify(toolCall.arguments, null, 2)}
+
+        {/* Expand indicator */}
+        {hasDetail && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className={`text-zinc-600 flex-shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        )}
+      </button>
+
+      {/* Expanded detail */}
+      {expanded && hasDetail && (
+        <div className="border-t border-zinc-800/50 px-2.5 py-2">
+          <pre className="text-[11px] bg-zinc-950/80 rounded-md p-2.5 overflow-x-auto font-mono leading-relaxed max-h-40 overflow-y-auto text-zinc-400 border border-zinc-800/30">
+            {toolCall.error || toolCall.result?.slice(0, 1000)}
           </pre>
         </div>
-        {toolCall.result && (
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-              结果
-            </div>
-            <pre className="text-[11px] bg-gray-100 dark:bg-gray-900/80 rounded-lg p-2.5 overflow-x-auto font-mono leading-relaxed max-h-48 overflow-y-auto text-gray-700 dark:text-gray-300">
-              {toolCall.result}
-            </pre>
-          </div>
-        )}
-        {toolCall.error && (
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-red-400 mb-1">错误</div>
-            <pre className="text-[11px] bg-red-50 dark:bg-red-950/20 rounded-lg p-2.5 overflow-x-auto font-mono leading-relaxed text-red-700 dark:text-red-400">
-              {toolCall.error}
-            </pre>
-          </div>
-        )}
-      </div>
-    </details>
+      )}
+    </div>
   );
 }
