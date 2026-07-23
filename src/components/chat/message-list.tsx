@@ -19,11 +19,9 @@ export function MessageList({ messages, streaming }: MessageListProps) {
   const scrollToBottom = useCallback((smooth = false) => {
     programmaticRef.current = true;
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
-    // smooth 滚动结束后重置标记
     if (smooth) {
       setTimeout(() => { programmaticRef.current = false; }, 500);
     } else {
-      // instant 滚动立即完成，用 rAF 确保 scroll 事件已处理
       requestAnimationFrame(() => { programmaticRef.current = false; });
     }
   }, []);
@@ -34,7 +32,7 @@ export function MessageList({ messages, streaming }: MessageListProps) {
     if (!el) return;
 
     const onScroll = () => {
-      if (programmaticRef.current) return; // 忽略程序化滚动
+      if (programmaticRef.current) return;
       const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
       if (dist > 80) {
         autoScrollRef.current = false;
@@ -47,7 +45,7 @@ export function MessageList({ messages, streaming }: MessageListProps) {
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }); // 无依赖 = 每次渲染都重新绑定，确保 messages 从空变有后也能绑上
+  });
 
   // 每次渲染后自动滚底
   useLayoutEffect(() => {
@@ -75,8 +73,8 @@ export function MessageList({ messages, streaming }: MessageListProps) {
               <path d="M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-zinc-200 mb-1.5 tracking-tight">{'{{Pi}}'}Agent</h2>
-          <p className="text-[13px] text-zinc-500 leading-relaxed">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-zinc-200 mb-1.5 tracking-tight">{'{{Pi}}'}Agent</h2>
+          <p className="text-[13px] text-gray-400 dark:text-zinc-500 leading-relaxed">
             选择一个模型和项目目录，然后告诉我你想做什么。
           </p>
         </div>
@@ -106,7 +104,7 @@ export function MessageList({ messages, streaming }: MessageListProps) {
             setShowScrollBtn(false);
             scrollToBottom(true);
           }}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 shadow-lg flex items-center justify-center transition-all animate-fade-in-up"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-400 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700 shadow-lg flex items-center justify-center transition-all animate-fade-in-up"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <polyline points="6 9 12 15 18 9"/>

@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PiAgent — 架构文档</title>
+<style>
+  :root {
+    --bg: #0d0d12;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,.06);
+    --text: #c4c4cc;
+    --text2: #84848c;
+    --accent: #5e6ad2;
+    --green: #3cb371;
+    --yellow: #d4a72c;
+    --red: #e5534b;
+    --code-bg: #0a0a10;
+  }
+  * { margin:0; padding:0; box-sizing:border-box }
+  body {
+    font: 14px/1.7 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  nav {
+    position:fixed; top:0; left:0; bottom:0; width:260px;
+    background:var(--surface); border-right:1px solid var(--border);
+    padding:24px 20px; overflow-y:auto; z-index:10;
+  }
+  nav h1 { font-size:18px; color:#fff; margin-bottom:24px; font-weight:600 }
+  nav h1 span { color:var(--accent) }
+  nav a { display:block; color:var(--text2); text-decoration:none; padding:6px 0; font-size:13px; transition:color .15s }
+  nav a:hover, nav a.active { color:#fff }
+  nav .section { margin-top:16px; padding-top:16px; border-top:1px solid var(--border) }
+  nav .section-title { font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--text2); margin-bottom:8px }
+  main { margin-left:260px; padding:48px 64px; max-width:900px }
+  h2 { font-size:28px; color:#fff; margin:48px 0 20px; font-weight:600; letter-spacing:-.3px }
+  h2:first-child { margin-top:0 }
+  h3 { font-size:18px; color:#e0e0e8; margin:32px 0 12px; font-weight:600 }
+  p { margin-bottom:16px; color:var(--text) }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:16px 20px; overflow-x:auto; margin:16px 0; font-size:13px; line-height:1.6 }
+  code { font-family:'SF Mono', 'Fira Code', monospace; font-size:13px }
+  :not(pre) > code { background:var(--surface2); padding:2px 6px; border-radius:4px; font-size:12.5px; color:var(--accent) }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:13px }
+  th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--border) }
+  th { color:var(--text2); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px }
+  td:first-child, th:first-child { padding-left:0 }
+  ul, ol { margin:12px 0 12px 20px; color:var(--text) }
+  li { margin-bottom:6px }
+  a { color:var(--accent); text-decoration:none }
+  a:hover { text-decoration:underline }
+  hr { border:none; border-top:1px solid var(--border); margin:48px 0 }
+  .diagram { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin:16px 0; font:13px/1.8 'SF Mono', monospace; white-space:pre; overflow-x:auto; color:#aaa }
+  .diagram .hl { color:#fff }
+  .diagram .ac { color:var(--accent) }
+  .diagram .gr { color:var(--green) }
+  .kw { color:var(--accent) } .str { color:var(--green) } .cm { color:#666 } .fn { color:#d4a72c } .num { color:var(--accent) }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:500 }
+  .badge-green { background:rgba(60,179,113,.15); color:var(--green) }
+  .badge-yellow { background:rgba(212,167,44,.15); color:var(--yellow) }
+  @media(max-width:900px) {
+    nav { display:none }
+    main { margin-left:0; padding:24px }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <h1><span>π</span> PiAgent</h1>
+  <a href="#overview">总览</a>
+  <a href="#files">文件清单</a>
+  <div class="section">
+    <div class="section-title">核心引擎</div>
+    <a href="#types">类型系统</a>
+    <a href="#tool-interface">Tool 接口</a>
+    <a href="#prompt">System Prompt</a>
+    <a href="#agent-loop">主循环</a>
+    <a href="#call-llm">LLM 调用</a>
+    <a href="#history">多轮对话</a>
+  </div>
+  <div class="section">
+    <div class="section-title">工具系统</div>
+    <a href="#tool-read">read_file</a>
+    <a href="#tool-write">write_file</a>
+    <a href="#tool-edit">edit_file</a>
+    <a href="#tool-search">search_code</a>
+    <a href="#tool-exec">run_command</a>
+  </div>
+  <div class="section">
+    <div class="section-title">路由</div>
+    <a href="#route-flow">请求流程</a>
+    <a href="#sse-mapping">SSE 映射</a>
+  </div>
+  <a href="#dataflow">完整数据流</a>
+  <a href="#decisions">设计决策</a>
+  <a href="#extend">如何扩展</a>
+</nav>
+
+<main>
+
+<h2 id="overview">一、总览</h2>
+
+<p>PiAgent 是嵌入在 <code>agent-chat-ui</code>（Next.js 16）中的最小化 AI Coding Agent 框架。约 <strong>600 行 TypeScript</strong>，<strong>零外部 Agent 依赖</strong>，只靠 <code>fetch</code> 调 LLM API + Node.js 标准库。</p>
+
+<div class="diagram">
+┌──────────────────────────────────────────┐
+│<span class="hl">            浏览器 (React)                 </span>│
+│  page.tsx → chat-input → <span class="ac">POST /api/chat</span>    │
+│           → SSE 流式渲染                  │
+└──────────────────┬───────────────────────┘
+                   │
+┌──────────────────▼───────────────────────┐
+│<span class="hl">        route.ts (SSE 桥梁)               </span>│
+│  解析请求 → 提取 task + history           │
+│  <span class="ac">new PiAgent()</span> + 注册 5 个工具          │
+│  agent.on(step) → SSE chunk              │
+└──────────────────┬───────────────────────┘
+                   │
+┌──────────────────▼───────────────────────┐
+│<span class="hl">        core.ts (Agent 引擎)              </span>│
+│                                           │
+│  ┌──────────┐   ┌──────────┐             │
+│  │  System   │──▶│  LLM API │             │
+│  │  Prompt   │   │  (fetch) │             │
+│  └──────────┘   └────┬─────┘             │
+│                      │                    │
+│         tool_calls?  │                    │
+│         ┌────────────┘                    │
+│         ▼                                 │
+│  ┌─────────────┐                          │
+│  │  tools.ts   │                          │
+│  │  5 个工具    │                          │
+│  └─────────────┘                          │
+└───────────────────────────────────────────┘
+</div>
+
+<h3 id="files">文件清单</h3>
+
+<table>
+<tr><th>文件</th><th>行数</th><th>职责</th></tr>
+<tr><td><code>src/lib/agent/core.ts</code></td><td>233</td><td>Agent 引擎：类型、Prompt、主循环、LLM 调用</td></tr>
+<tr><td><code>src/lib/agent/tools.ts</code></td><td>222</td><td>5 个内置工具</td></tr>
+<tr><td><code>src/app/api/chat/route.ts</code></td><td>143</td><td>API 路由：HTTP → Agent → SSE</td></tr>
+<tr><td><code>src/lib/types.ts</code></td><td>41</td><td>前端类型定义</td></tr>
+</table>
+
+<hr>
+
+<h2 id="types">二、类型系统</h2>
+
+<p>框架只暴露三个对外类型，其余都是内部实现细节。</p>
+
+<h3>Tool — 工具接口</h3>
+<pre><code><span class="kw">interface</span> <span class="fn">Tool</span> {
+  <span class="fn">name</span>: <span class="kw">string</span>;           <span class="cm">// 工具名，LLM 通过这个名字调用</span>
+  <span class="fn">description</span>: <span class="kw">string</span>;    <span class="cm">// 告诉 LLM 这个工具干什么</span>
+  <span class="fn">schema</span>: {               <span class="cm">// JSON Schema，LLM 据此生成参数</span>
+    <span class="fn">type</span>: <span class="str">"object"</span>;
+    <span class="fn">properties</span>: <span class="kw">Record</span>&lt;<span class="kw">string</span>, { <span class="fn">type</span>: <span class="kw">string</span>; <span class="fn">description</span>: <span class="kw">string</span> }&gt;;
+    <span class="fn">required</span>: <span class="kw">string</span>[];
+  };
+  <span class="fn">run</span>(<span class="fn">args</span>: <span class="kw">Record</span>&lt;<span class="kw">string</span>, <span class="kw">unknown</span>&gt;): <span class="kw">Promise</span>&lt;<span class="kw">string</span>&gt;;
+}</code></pre>
+
+<h3>AgentConfig — 配置</h3>
+<pre><code><span class="kw">interface</span> <span class="fn">AgentConfig</span> {
+  <span class="fn">apiKey</span>: <span class="kw">string</span>;         <span class="cm">// LLM API 密钥</span>
+  <span class="fn">model</span>: <span class="kw">string</span>;          <span class="cm">// 模型名，如 gpt-4o / gemma4:e4b</span>
+  <span class="fn">baseURL</span>?: <span class="kw">string</span>;       <span class="cm">// API 地址，默认 OpenAI</span>
+  <span class="fn">maxSteps</span>?: <span class="kw">number</span>;      <span class="cm">// 最大推理步数，默认 15</span>
+  <span class="fn">systemPrompt</span>?: <span class="kw">string</span>;  <span class="cm">// 自定义 system prompt</span>
+}</code></pre>
+
+<h3>StepEvent — 流式回调事件</h3>
+<pre><code><span class="kw">interface</span> <span class="fn">StepEvent</span> {
+  <span class="fn">type</span>: <span class="str">"thought"</span> | <span class="str">"action"</span> | <span class="str">"observation"</span> | <span class="str">"answer"</span>;
+  <span class="fn">content</span>: <span class="kw">string</span>;
+  <span class="fn">toolName</span>?: <span class="kw">string</span>;                        <span class="cm">// action/observation 时附带</span>
+  <span class="fn">toolArgs</span>?: <span class="kw">Record</span>&lt;<span class="kw">string</span>, <span class="kw">unknown</span>&gt;;      <span class="cm">// action 时附带</span>
+}</code></pre>
+
+<p>Agent 内部还有 <code>Message</code> 类型（对齐 OpenAI API 的 <code>role/content/tool_calls/tool_call_id</code> 字段），不对外暴露。</p>
+
+<hr>
+
+<h2 id="tool-interface">三、Tool 接口 — 框架的扩展点</h2>
+
+<p>任何实现 <code>Tool</code> 接口的对象都可以通过 <code>agent.use(tool)</code> 注册。框架不关心工具内部做什么——读文件、调 API、操作数据库都行。</p>
+
+<pre><code><span class="cm">// 最小工具示例：获取当前时间</span>
+<span class="kw">const</span> timeTool: <span class="fn">Tool</span> = {
+  <span class="fn">name</span>: <span class="str">"get_time"</span>,
+  <span class="fn">description</span>: <span class="str">"获取当前时间"</span>,
+  <span class="fn">schema</span>: {
+    <span class="fn">type</span>: <span class="str">"object"</span>,
+    <span class="fn">properties</span>: {},
+    <span class="fn">required</span>: [],
+  },
+  <span class="kw">async</span> <span class="fn">run</span>(<span class="fn">args</span>) {
+    <span class="kw">return</span> <span class="kw">new</span> <span class="fn">Date</span>().<span class="fn">toISOString</span>();
+  },
+};
+
+agent.<span class="fn">use</span>(timeTool);
+</code></pre>
+
+<p>工具注册是链式调用的：<code>agent.use(t1).use(t2).use(t3)</code>，内部用 <code>Map&lt;string, Tool&gt;</code> 存储。</p>
+
+<hr>
+
+<h2 id="prompt">四、System Prompt</h2>
+
+<p><code>buildPrompt(tools, custom?)</code> 构造发送给 LLM 的第一条消息：</p>
+
+<pre><code>你是一个 coding agent。你可以使用工具来读写文件、搜索代码、执行命令。
+
+## 可用工具
+- read_file: 读取文件内容，支持行号范围
+- write_file: 写入文件（覆盖），自动创建父目录
+- edit_file: 精准编辑文件——查找并替换指定文本
+- search_code: 搜索代码库中的文本或正则
+- run_command: 执行 shell 命令
+
+## 工作方式
+- HTML/CSS/JS 等网页文件请放在 public/ 目录下
+- 使用 edit_file 精准编辑已有文件，避免全量重写
+- 完成任务后简要总结你做了什么</code></pre>
+
+<p>如果传入 <code>systemPrompt</code> 配置项，跳过内置 prompt 直接用自定义的。</p>
+
+<hr>
+
+<h2 id="agent-loop">五、主循环 — run()</h2>
+
+<p>这是 Agent 的心脏，约 90 行。核心逻辑：</p>
+
+<div class="diagram">
+<span class="fn">run</span>(<span class="fn">task</span>, <span class="fn">history</span>?)
+  │
+  ├─ 1. 构建 messages 数组
+  │     [system prompt] + [历史] + [task]
+  │
+  ├─ 2. 转换工具 → OpenAI function calling 格式
+  │     Tool[] → [{ type: "function", function: {…} }]
+  │
+  └─ 3. <span class="hl">while</span> step &lt; maxSteps:
+       │
+       ├─ <span class="fn">callLLM</span>(messages, tools) → /chat/completions
+       │
+       ├─ 响应有 <span class="gr">tool_calls</span>？
+       │   ├─ YES → 遍历每个 tool_call
+       │   │   ├─ 查找工具 → JSON.parse 参数
+       │   │   ├─ <span class="ac">emit("action")</span> → 通知外部
+       │   │   ├─ <span class="fn">tool.run</span>(args) → 执行
+       │   │   ├─ <span class="ac">emit("observation")</span> → 通知外部
+       │   │   └─ 结果推入 messages (role: "tool")
+       │   └─ <span class="hl">continue</span>
+       │
+       └─ 无 tool_calls → <span class="gr">return</span> content 作为答案
+</div>
+
+<h3>完整源代码（带注释）</h3>
+
+<pre><code><span class="kw">async</span> <span class="fn">run</span>(
+  <span class="fn">task</span>: <span class="kw">string</span>,
+  <span class="fn">history</span>?: <span class="kw">Array</span>&lt;{ <span class="fn">role</span>: <span class="str">"user"</span> | <span class="str">"assistant"</span>; <span class="fn">content</span>: <span class="kw">string</span> }&gt;
+): <span class="kw">Promise</span>&lt;<span class="kw">string</span>&gt; {
+  <span class="cm">// 获取所有已注册的工具</span>
+  <span class="kw">const</span> toolList = <span class="kw">Array</span>.<span class="fn">from</span>(<span class="kw">this</span>.tools.<span class="fn">values</span>());
+  
+  <span class="cm">// 构建初始消息：system prompt + 可选历史 + 用户任务</span>
+  <span class="kw">const</span> messages: <span class="fn">Message</span>[] = [
+    { <span class="fn">role</span>: <span class="str">"system"</span>, <span class="fn">content</span>: <span class="fn">buildPrompt</span>(toolList, <span class="kw">this</span>.config.<span class="fn">systemPrompt</span>) },
+  ];
+
+  <span class="kw">if</span> (history &amp;&amp; history.<span class="fn">length</span> &gt; <span class="num">0</span>) {
+    <span class="cm">// 把历史对话文本化，注入到用户消息里</span>
+    <span class="kw">const</span> contextMsg = history
+      .<span class="fn">map</span>(m =&gt; `[${m.<span class="fn">role</span> === <span class="str">"user"</span> ? <span class="str">"用户"</span> : <span class="str">"AI"</span>}]: ${m.<span class="fn">content</span>}`)
+      .<span class="fn">join</span>(<span class="str">"\n\n"</span>);
+    messages.<span class="fn">push</span>({
+      <span class="fn">role</span>: <span class="str">"user"</span>,
+      <span class="fn">content</span>: `以下是之前的对话历史：\n\n${contextMsg}\n\n---\n当前任务：${task}`,
+    });
+  } <span class="kw">else</span> {
+    messages.<span class="fn">push</span>({ <span class="fn">role</span>: <span class="str">"user"</span>, <span class="fn">content</span>: task });
+  }
+
+  <span class="cm">// 把 Tool 对象转换为 OpenAI function calling 所需的 tools 参数格式</span>
+  <span class="kw">const</span> openaiTools = toolList.<span class="fn">map</span>(t =&gt; ({
+    <span class="fn">type</span>: <span class="str">"function"</span> <span class="kw">as</span> <span class="kw">const</span>,
+    <span class="kw">function</span>: {
+      <span class="fn">name</span>: t.<span class="fn">name</span>,
+      <span class="fn">description</span>: t.<span class="fn">description</span>,
+      <span class="fn">parameters</span>: t.<span class="fn">schema</span>,   <span class="cm">// JSON Schema 直接透传</span>
+    },
+  }));
+
+  <span class="cm">// ---- ReAct 主循环 ----</span>
+  <span class="kw">for</span> (<span class="kw">let</span> step = <span class="num">0</span>; step &lt; <span class="kw">this</span>.config.<span class="fn">maxSteps</span>; step++) {
+    <span class="cm">// ① 调用 LLM</span>
+    <span class="kw">const</span> data = <span class="kw">await</span> <span class="kw">this</span>.<span class="fn">callLLM</span>(messages, openaiTools);
+    <span class="kw">const</span> msg: <span class="fn">Message</span> = data.<span class="fn">choices</span>[<span class="num">0</span>].<span class="fn">message</span>;
+
+    <span class="cm">// ② LLM 要调工具 → 执行</span>
+    <span class="kw">if</span> (msg.<span class="fn">tool_calls</span> &amp;&amp; msg.<span class="fn">tool_calls</span>.<span class="fn">length</span> &gt; <span class="num">0</span>) {
+      messages.<span class="fn">push</span>(msg);  <span class="cm">// 把 LLM 的 tool_calls 消息记入历史</span>
+
+      <span class="kw">for</span> (<span class="kw">const</span> tc <span class="kw">of</span> msg.<span class="fn">tool_calls</span>) {
+        <span class="kw">const</span> tool = <span class="kw">this</span>.tools.<span class="fn">get</span>(tc.<span class="kw">function</span>.<span class="fn">name</span>);
+        <span class="kw">if</span> (!tool) {
+          <span class="cm">// 工具不存在 → 把错误作为 observation 返回给 LLM</span>
+          messages.<span class="fn">push</span>({ <span class="fn">role</span>: <span class="str">"tool"</span>, <span class="fn">tool_call_id</span>: tc.<span class="fn">id</span>, <span class="fn">content</span>: `工具不存在` });
+          <span class="kw">continue</span>;
+        }
+
+        <span class="cm">// 解析 LLM 生成的参数 JSON</span>
+        <span class="kw">let</span> args: <span class="kw">Record</span>&lt;<span class="kw">string</span>, <span class="kw">unknown</span>&gt; = {};
+        <span class="kw">try</span> { args = <span class="kw">JSON</span>.<span class="fn">parse</span>(tc.<span class="kw">function</span>.<span class="fn">arguments</span>); }
+        <span class="kw">catch</span> { <span class="cm">/* JSON 解析失败 → 错误喂回 LLM */</span> }
+
+        <span class="cm">// 通知外部（route.ts 将其转为 SSE 事件）</span>
+        <span class="kw">this</span>.<span class="fn">emit</span>({ <span class="fn">type</span>: <span class="str">"action"</span>, <span class="fn">content</span>: `调用 ${tc.<span class="kw">function</span>.<span class="fn">name</span>}`,
+                     <span class="fn">toolName</span>: tc.<span class="kw">function</span>.<span class="fn">name</span>, <span class="fn">toolArgs</span>: args });
+
+        <span class="cm">// ③ 执行工具</span>
+        <span class="kw">try</span> {
+          <span class="kw">const</span> result = <span class="kw">await</span> tool.<span class="fn">run</span>(args);
+          <span class="cm">// 把结果作为 tool role 消息推入，LLM 下一轮能看到</span>
+          messages.<span class="fn">push</span>({ <span class="fn">role</span>: <span class="str">"tool"</span>, <span class="fn">tool_call_id</span>: tc.<span class="fn">id</span>, <span class="fn">content</span>: result });
+          <span class="kw">this</span>.<span class="fn">emit</span>({ <span class="fn">type</span>: <span class="str">"observation"</span>, <span class="fn">content</span>: result, <span class="fn">toolName</span>: tc.<span class="kw">function</span>.<span class="fn">name</span> });
+        } <span class="kw">catch</span> (e) {
+          <span class="cm">// 工具执行异常 → 错误喂回 LLM</span>
+          messages.<span class="fn">push</span>({ <span class="fn">role</span>: <span class="str">"tool"</span>, <span class="fn">tool_call_id</span>: tc.<span class="fn">id</span>, <span class="fn">content</span>: `异常: ${e.<span class="fn">message</span>}` });
+        }
+      }
+      <span class="kw">continue</span>;  <span class="cm">// 进入下一轮，LLM 看到工具结果后决定下一步</span>
+    }
+
+    <span class="cm">// ④ 没有 tool_calls → LLM 认为任务完成，返回最终答案</span>
+    <span class="kw">const</span> answer = msg.<span class="fn">content</span> || <span class="str">""</span>;
+    <span class="kw">if</span> (answer) {
+      <span class="kw">this</span>.<span class="fn">emit</span>({ <span class="fn">type</span>: <span class="str">"thought"</span>, <span class="fn">content</span>: <span class="str">"任务完成"</span> });
+      <span class="kw">this</span>.<span class="fn">emit</span>({ <span class="fn">type</span>: <span class="str">"answer"</span>, <span class="fn">content</span>: answer });
+    }
+    <span class="kw">return</span> answer;
+  }
+
+  <span class="cm">// 用尽步数 → 返回错误</span>
+  <span class="kw">return</span> `未完成：已达最大步数 ${<span class="kw">this</span>.config.<span class="fn">maxSteps</span>}`;
+}</code></pre>
+
+<hr>
+
+<h2 id="call-llm">六、LLM 调用 — callLLM()</h2>
+
+<pre><code><span class="kw">private</span> <span class="kw">async</span> <span class="fn">callLLM</span>(
+  <span class="fn">messages</span>: <span class="fn">Message</span>[],
+  <span class="fn">tools</span>: <span class="kw">Array</span>&lt;{
+    <span class="fn">type</span>: <span class="str">"function"</span>;
+    <span class="kw">function</span>: { <span class="fn">name</span>: <span class="kw">string</span>; <span class="fn">description</span>: <span class="kw">string</span>; <span class="fn">parameters</span>: <span class="fn">ToolSchema</span> };
+  }&gt;
+): <span class="kw">Promise</span>&lt;<span class="kw">any</span>&gt; {
+  <span class="kw">const</span> body: <span class="kw">any</span> = {
+    <span class="fn">model</span>: <span class="kw">this</span>.config.<span class="fn">model</span>,
+    messages,
+    <span class="fn">temperature</span>: <span class="num">0</span>,
+  };
+  <span class="kw">if</span> (tools.<span class="fn">length</span> &gt; <span class="num">0</span>) {
+    body.<span class="fn">tools</span> = tools;
+    body.<span class="fn">tool_choice</span> = <span class="str">"auto"</span>;  <span class="cm">// LLM 自己判断是否需要调工具</span>
+  }
+
+  <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(`${<span class="kw">this</span>.config.<span class="fn">baseURL</span>}/chat/completions`, {
+    <span class="fn">method</span>: <span class="str">"POST"</span>,
+    <span class="fn">headers</span>: {
+      <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span>,
+      <span class="fn">Authorization</span>: `Bearer ${<span class="kw">this</span>.config.<span class="fn">apiKey</span>}`,
+    },
+    <span class="fn">body</span>: <span class="kw">JSON</span>.<span class="fn">stringify</span>(body),
+  });
+
+  <span class="kw">if</span> (!res.<span class="fn">ok</span>) {
+    <span class="kw">const</span> text = <span class="kw">await</span> res.<span class="fn">text</span>();
+    <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(`LLM API ${res.<span class="fn">status</span>}: ${text.<span class="fn">slice</span>(<span class="num">0</span>, <span class="num">300</span>)}`);
+  }
+
+  <span class="kw">return</span> res.<span class="fn">json</span>();
+}</code></pre>
+
+<p><code>temperature: 0</code> 保证确定性——同一问题不会随机调不同工具。<code>tool_choice: "auto"</code> 让 LLM 自己判断是否需要调工具。</p>
+
+<hr>
+
+<h2 id="history">七、多轮对话</h2>
+
+<p><code>run()</code> 接受可选的 <code>history</code> 参数。有历史时，消息格式：</p>
+
+<pre><code>[用户]: 创建 src/hello.ts，导出 greet 函数
+[AI]: 已创建，包含 greet 函数返回 Hello World
+
+---
+当前任务：加个 farewell 函数返回 Goodbye</code></pre>
+
+<p>这样 Agent 知道前面创建过什么文件、做了什么修改，不需要用户重复描述。</p>
+
+<p><strong>为什么历史拼成文本而不是多轮 messages？</strong> OpenAI 格式要求工具调用后使用 <code>role: "tool"</code> 消息携带 <code>tool_call_id</code>。前端存储的历史消息只有纯文本 content，没有 tool_calls 结构。拼成文本是安全的折中方案。</p>
+
+<hr>
+
+<h2 id="tool-read">八、工具：read_file</h2>
+
+<table>
+<tr><th>参数</th><th>类型</th><th>默认</th><th>说明</th></tr>
+<tr><td>path</td><td>string</td><td>—</td><td>文件路径</td></tr>
+<tr><td>offset</td><td>number</td><td>1</td><td>起始行号</td></tr>
+<tr><td>limit</td><td>number</td><td>200</td><td>读取行数</td></tr>
+</table>
+
+<pre><code><span class="kw">export const</span> readFileTool: <span class="fn">Tool</span> = {
+  <span class="fn">name</span>: <span class="str">"read_file"</span>,
+  <span class="fn">description</span>: <span class="str">"读取文件内容，支持行号范围"</span>,
+  <span class="fn">schema</span>: {
+    <span class="fn">type</span>: <span class="str">"object"</span>,
+    <span class="fn">properties</span>: {
+      <span class="fn">path</span>:   { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"文件路径"</span> },
+      <span class="fn">offset</span>: { <span class="fn">type</span>: <span class="str">"number"</span>, <span class="fn">description</span>: <span class="str">"起始行号，默认 1"</span> },
+      <span class="fn">limit</span>:  { <span class="fn">type</span>: <span class="str">"number"</span>, <span class="fn">description</span>: <span class="str">"读取行数，默认 200"</span> },
+    },
+    <span class="fn">required</span>: [<span class="str">"path"</span>],
+  },
+  <span class="kw">async</span> <span class="fn">run</span>(<span class="fn">args</span>) {
+    <span class="kw">const</span> fp = <span class="kw">String</span>(args.<span class="fn">path</span>);
+    <span class="kw">if</span> (!fs.<span class="fn">existsSync</span>(fp)) <span class="kw">return</span> `错误：文件不存在 —— ${fp}`;
+    <span class="kw">const</span> lines = fs.<span class="fn">readFileSync</span>(fp, <span class="str">"utf-8"</span>).<span class="fn">split</span>(<span class="str">"\n"</span>);
+    <span class="kw">const</span> offset = <span class="kw">Number</span>(args.<span class="fn">offset</span> ?? <span class="num">1</span>);
+    <span class="kw">const</span> limit  = <span class="kw">Number</span>(args.<span class="fn">limit</span>  ?? <span class="num">200</span>);
+    <span class="kw">const</span> end = <span class="kw">Math</span>.<span class="fn">min</span>(offset + limit, lines.<span class="fn">length</span>);
+    <span class="kw">const</span> result = lines.<span class="fn">slice</span>(offset - <span class="num">1</span>, end);
+    <span class="cm">// 返回：[path] L1-L50 / 200 行 + 带行号的代码</span>
+    <span class="kw">return</span> [`[${fp}] L${offset}-L${end} / ${lines.<span class="fn">length</span>} 行`,
+            ...result.<span class="fn">map</span>((l, i) =&gt; `${offset + i}: ${l}`)].<span class="fn">join</span>(<span class="str">"\n"</span>);
+  },
+};</code></pre>
+
+<hr>
+
+<h2 id="tool-write">九、工具：write_file</h2>
+
+<table>
+<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+<tr><td>path</td><td>string</td><td>文件路径（相对路径自动 resolve）</td></tr>
+<tr><td>content</td><td>string</td><td>完整内容</td></tr>
+</table>
+
+<pre><code><span class="kw">export const</span> writeFileTool: <span class="fn">Tool</span> = {
+  <span class="fn">name</span>: <span class="str">"write_file"</span>,
+  <span class="fn">description</span>: <span class="str">"写入文件（覆盖），自动创建父目录"</span>,
+  <span class="fn">schema</span>: {
+    <span class="fn">type</span>: <span class="str">"object"</span>,
+    <span class="fn">properties</span>: {
+      <span class="fn">path</span>:    { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"文件路径"</span> },
+      <span class="fn">content</span>: { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"完整内容"</span> },
+    },
+    <span class="fn">required</span>: [<span class="str">"path"</span>, <span class="str">"content"</span>],
+  },
+  <span class="kw">async</span> <span class="fn">run</span>(<span class="fn">args</span>) {
+    <span class="kw">const</span> fp = path.<span class="fn">resolve</span>(<span class="kw">String</span>(args.<span class="fn">path</span>));  <span class="cm">// → 绝对路径</span>
+    <span class="kw">const</span> content = <span class="kw">String</span>(args.<span class="fn">content</span>);
+    fs.<span class="fn">mkdirSync</span>(path.<span class="fn">dirname</span>(fp), { <span class="fn">recursive</span>: <span class="kw">true</span> });
+    fs.<span class="fn">writeFileSync</span>(fp, content, <span class="str">"utf-8"</span>);
+    <span class="kw">const</span> lines = content.<span class="fn">split</span>(<span class="str">"\n"</span>);
+    <span class="kw">const</span> preview = lines.<span class="fn">slice</span>(<span class="num">0</span>, <span class="num">15</span>).<span class="fn">join</span>(<span class="str">"\n"</span>);  <span class="cm">// 前 15 行预览</span>
+    <span class="kw">const</span> more = lines.<span class="fn">length</span> &gt; <span class="num">15</span> ? `\n...（共 ${lines.<span class="fn">length</span>} 行）` : <span class="str">""</span>;
+    <span class="kw">return</span> `✅ 文件已创建: ${fp}\n${lines.<span class="fn">length</span>} 行，${content.<span class="fn">length</span>} 字节\n\n--- 内容预览 ---\n${preview}${more}`;
+  },
+};</code></pre>
+
+<p>设计要点：<code>path.resolve()</code> 保证返回绝对路径；前 15 行预览嵌入返回结果，用户不用离开聊天就能看到内容。</p>
+
+<hr>
+
+<h2 id="tool-edit">十、工具：edit_file <span class="badge badge-green">核心亮点</span></h2>
+
+<table>
+<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+<tr><td>path</td><td>string</td><td>文件路径</td></tr>
+<tr><td>old_string</td><td>string</td><td>要被替换的文本，必须在文件中唯一</td></tr>
+<tr><td>new_string</td><td>string</td><td>替换后的文本</td></tr>
+</table>
+
+<p><strong>为什么需要 edit_file</strong>：write_file 是全量覆盖，编辑一行要重写整个文件——容易丢内容。edit_file 只替换匹配的片段。</p>
+
+<h3>匹配策略（四层）</h3>
+
+<div class="diagram">
+<span class="fn">edit_file</span>(path, old_string, new_string)
+  │
+  ├─ 读取文件内容
+  │
+  ├─ <span class="ac">精确匹配</span> old_string
+  │   ├─ 出现 <span class="gr">1 次</span> → 替换 ✓
+  │   └─ 出现 &gt;1 次 → 报错：不唯一，需增加上下文
+  │
+  ├─ <span class="ac">精确匹配</span> 失败？
+  │   └─ <span class="ac">trim() 后匹配</span>
+  │       ├─ 出现 <span class="gr">1 次</span> → 替换（标注"宽松匹配"）✓
+  │       └─ 出现 0 次 → 报错 + 返回文件前 500 字符供调试
+</div>
+
+<pre><code><span class="kw">export const</span> editFileTool: <span class="fn">Tool</span> = {
+  <span class="fn">name</span>: <span class="str">"edit_file"</span>,
+  <span class="fn">description</span>: <span class="str">"精准编辑文件——查找并替换指定文本"</span>,
+  <span class="fn">schema</span>: {
+    <span class="fn">type</span>: <span class="str">"object"</span>,
+    <span class="fn">properties</span>: {
+      <span class="fn">path</span>:       { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"文件路径"</span> },
+      <span class="fn">old_string</span>: { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"要替换的文本（需唯一）"</span> },
+      <span class="fn">new_string</span>: { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"新文本"</span> },
+    },
+    <span class="fn">required</span>: [<span class="str">"path"</span>, <span class="str">"old_string"</span>, <span class="str">"new_string"</span>],
+  },
+  <span class="kw">async</span> <span class="fn">run</span>(<span class="fn">args</span>) {
+    <span class="kw">const</span> fp = path.<span class="fn">resolve</span>(<span class="kw">String</span>(args.<span class="fn">path</span>));
+    <span class="kw">const</span> oldStr = <span class="kw">String</span>(args.<span class="fn">old_string</span>);
+    <span class="kw">const</span> newStr = <span class="kw">String</span>(args.<span class="fn">new_string</span>);
+    <span class="kw">if</span> (!fs.<span class="fn">existsSync</span>(fp)) <span class="kw">return</span> `错误：文件不存在 —— ${fp}`;
+
+    <span class="kw">const</span> content = fs.<span class="fn">readFileSync</span>(fp, <span class="str">"utf-8"</span>);
+
+    <span class="cm">// 统计出现次数</span>
+    <span class="kw">let</span> count = <span class="num">0</span>, pos = <span class="num">0</span>;
+    <span class="kw">while</span> ((pos = content.<span class="fn">indexOf</span>(oldStr, pos)) !== -<span class="num">1</span>) { count++; pos++; }
+
+    <span class="kw">if</span> (count === <span class="num">0</span>) {
+      <span class="cm">// 宽松匹配：trim 后重试</span>
+      <span class="kw">const</span> trimmed = oldStr.<span class="fn">trim</span>();
+      <span class="kw">let</span> tCount = <span class="num">0</span>, tPos = <span class="num">0</span>;
+      <span class="kw">while</span> ((tPos = content.<span class="fn">indexOf</span>(trimmed, tPos)) !== -<span class="num">1</span>) { tCount++; tPos++; }
+      <span class="kw">if</span> (tCount === <span class="num">1</span>) {
+        fs.<span class="fn">writeFileSync</span>(fp, content.<span class="fn">replace</span>(trimmed, newStr), <span class="str">"utf-8"</span>);
+        <span class="kw">return</span> `✅ 已编辑: ${fp}（宽松匹配）`;
+      }
+      <span class="kw">return</span> `错误：未找到匹配。\n文件前 500 字符：\n${content.<span class="fn">slice</span>(<span class="num">0</span>, <span class="num">500</span>)}`;
+    }
+
+    <span class="kw">if</span> (count &gt; <span class="num">1</span>) <span class="kw">return</span> `错误：出现了 ${count} 次，不唯一。请增加上下文行。`;
+
+    fs.<span class="fn">writeFileSync</span>(fp, content.<span class="fn">replace</span>(oldStr, newStr), <span class="str">"utf-8"</span>);
+    <span class="kw">return</span> `✅ 已编辑: ${fp}\n替换了 1 处匹配`;
+  },
+};</code></pre>
+
+<hr>
+
+<h2 id="tool-search">十一、工具：search_code</h2>
+
+<table>
+<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+<tr><td>pattern</td><td>string</td><td>文本或正则</td></tr>
+<tr><td>dir</td><td>string</td><td>目录，默认 .</td></tr>
+<tr><td>fileGlob</td><td>string</td><td>文件过滤，如 "*.ts"</td></tr>
+</table>
+
+<p>递归遍历目录，跳过 <code>.</code> 开头目录和 <code>node_modules</code>，每个文件逐行匹配。最多 50 个结果。不支持正则时自动转义为纯文本搜索。</p>
+
+<pre><code><span class="kw">function</span> <span class="fn">safeRegex</span>(<span class="fn">p</span>: <span class="kw">string</span>): <span class="fn">RegExp</span> {
+  <span class="kw">try</span> { <span class="kw">return</span> <span class="kw">new</span> <span class="fn">RegExp</span>(p, <span class="str">"gi"</span>); }
+  <span class="kw">catch</span> {
+    <span class="cm">// 不是合法正则 → 转义特殊字符后当纯文本搜</span>
+    <span class="kw">return</span> <span class="kw">new</span> <span class="fn">RegExp</span>(p.<span class="fn">replace</span>(<span class="str">/[.*+?^${}()|[\]\\]/g</span>, <span class="str">"\\$&"</span>), <span class="str">"gi"</span>);
+  }
+}</code></pre>
+
+<hr>
+
+<h2 id="tool-exec">十二、工具：run_command</h2>
+
+<table>
+<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+<tr><td>command</td><td>string</td><td>shell 命令</td></tr>
+<tr><td>workdir</td><td>string</td><td>工作目录</td></tr>
+</table>
+
+<p>安全限制：<span class="badge badge-yellow">10s 超时</span> <span class="badge badge-yellow">5KB 截断</span> <span class="badge badge-yellow">10MB buffer</span></p>
+
+<pre><code><span class="kw">const</span> stdout = <span class="fn">execSync</span>(cmd, {
+  cwd, <span class="fn">timeout</span>: <span class="num">10_000</span>,
+  <span class="fn">encoding</span>: <span class="str">"utf-8"</span>,
+  <span class="fn">maxBuffer</span>: <span class="num">10</span> * <span class="num">1024</span> * <span class="num">1024</span>,
+});</code></pre>
+
+<hr>
+
+<h2 id="route-flow">十三、API 路由：请求处理流程</h2>
+
+<div class="diagram">
+<span class="fn">POST</span> /api/chat { messages, model, apiKey, baseUrl }
+  │
+  ├─ 1. 提取配置：apiBase, key
+  ├─ 2. 本地 API（localhost）<span class="gr">免 key 检查</span>
+  ├─ 3. 提取任务：最后一条 user 消息 = task
+  ├─ 4. 提取历史：task 之前的 user/assistant → history[]
+  ├─ 5. <span class="ac">new PiAgent</span>(config) + 注册全部 5 个工具
+  │
+  └─ 6. 创建 <span class="ac">SSE ReadableStream</span>
+       │
+       ├─ agent.<span class="fn">on</span>(stepEvent) → 转 markdown → <span class="fn">emit</span>(chunk)
+       │   ├─ thought      → "&gt; 🤔 ..."
+       │   ├─ action       → "🔧 调用工具" + JSON
+       │   ├─ observation  → "📋 结果" 或 "📄 文件已创建"
+       │   └─ answer       → "✅" + 文件汇总
+       │
+       └─ agent.<span class="fn">run</span>(task, history)
+</div>
+
+<hr>
+
+<h2 id="sse-mapping">十四、SSE 事件 → Markdown 映射</h2>
+
+<table>
+<tr><th>StepEvent.type</th><th>前端 Markdown 展示</th></tr>
+<tr><td><code>thought</code></td><td><code>&gt; 🤔 推理文字</code></td></tr>
+<tr><td><code>action</code></td><td><code>### 🔧 调用工具：write_file</code> + JSON 代码块</td></tr>
+<tr><td><code>observation</code> (write_file)</td><td><code>### 📄 文件已创建</code> + 路径 + 内容预览</td></tr>
+<tr><td><code>observation</code> (其他)</td><td><code>📋 结果：</code> + 结果代码块</td></tr>
+<tr><td><code>answer</code></td><td><code>✅ 答案</code> + 📂 文件汇总列表</td></tr>
+</table>
+
+<p>文件创建的特殊处理逻辑：</p>
+
+<pre><code><span class="cm">// route.ts 中的 observation 处理</span>
+<span class="kw">case</span> <span class="str">"observation"</span>: {
+  <span class="kw">const</span> isWriteFile = event.<span class="fn">toolName</span> === <span class="str">"write_file"</span>;
+  <span class="kw">const</span> hasFilePath = isWriteFile &amp;&amp; <span class="str">/✅ 文件已创建: (.+)/</span>.<span class="fn">test</span>(event.<span class="fn">content</span>);
+
+  <span class="kw">if</span> (hasFilePath) {
+    <span class="cm">// 解析路径 → 记录到 createdFiles[]</span>
+    <span class="cm">// 分离元信息（行数/字节）和内容预览</span>
+    <span class="cm">// 分别用标题、行内代码、代码块展示</span>
+    <span class="kw">const</span> filePath = event.<span class="fn">content</span>.<span class="fn">match</span>(<span class="str">/✅ 文件已创建: (.+)/</span>)[<span class="num">1</span>];
+    createdFiles.<span class="fn">push</span>(filePath);
+    <span class="fn">emit</span>(`### 📄 文件已创建\n\`${filePath}\`\n...`);
+  }
+}</code></pre>
+
+<hr>
+
+<h2 id="dataflow">十五、完整数据流</h2>
+
+<p>一次「创建 hello.ts」从用户输入到页面渲染的完整链路：</p>
+
+<div class="diagram">
+<span class="cm">① 用户输入 "创建 src/hello.ts，导出 greet 函数"</span>
+  │
+<span class="cm">② page.tsx: POST /api/chat { messages, model, baseUrl }</span>
+  │
+<span class="cm">③ route.ts: task="创建...", history=[], new PiAgent()</span>
+  │
+<span class="cm">④ core.ts: run() → 构建 system prompt + task</span>
+  │
+<span class="cm">⑤ callLLM() → POST /chat/completions</span>
+  │   body: { model, messages, tools: [...5个], tool_choice: "auto" }
+  │
+<span class="cm">⑥ LLM 返回 tool_calls[{ function: { name:"write_file",</span>
+<span class="cm">     arguments:'{"path":"src/hello.ts","content":"export function greet()..."}' }}]</span>
+  │
+<span class="cm">⑦ Agent: tools.get("write_file") → JSON.parse(arguments)</span>
+<span class="cm">    → emit("action") → route 转 SSE → 前端显示工具调用卡片</span>
+  │
+<span class="cm">⑧ writeFileTool.run() → fs.writeFileSync() → 文件落盘</span>
+<span class="cm">    → 返回 "✅ 文件已创建: /absolute/path\n3行,61字节\n---内容预览---"</span>
+  │
+<span class="cm">⑨ emit("observation") → route 转 SSE → 前端显示文件创建结果</span>
+  │
+<span class="cm">⑩ 结果以 role:"tool" 消息推入 messages，继续下一轮</span>
+  │
+<span class="cm">⑪ LLM: 没有 tool_calls → content="已创建 greet 函数"</span>
+  │
+<span class="cm">⑫ emit("answer") → route 追加文件汇总 → SSE [DONE]</span>
+  │
+<span class="cm">⑬ 前端: ReactMarkdown 渲染完整回答</span>
+</div>
+
+<hr>
+
+<h2 id="decisions">十六、关键设计决策</h2>
+
+<h3>为什么用 function calling 而不是文本解析？</h3>
+<p>v1 用文本 ReAct（Thought:/Action:/Action Input: 正则匹配），DeepSeek 和 Gemma 不遵守格式，直接把代码写在回答里。function calling 是 LLM 原生支持的机制，<code>tool_calls</code> 是结构化的，零格式错误。</p>
+
+<h3>为什么 temperature=0？</h3>
+<p>工具调用要求确定性。temperature&gt;0 可能导致同一问题两次调用不同工具，不可调试。</p>
+
+<h3>为什么 history 拼成文本而不是多轮 messages？</h3>
+<p>OpenAI 格式要求 <code>role: "tool"</code> 消息携带 <code>tool_call_id</code>。前端存储的历史消息只有纯文本 content，没有 tool_calls 结构。拼成文本是最安全的折中。</p>
+
+<h3>为什么 edit_file 用 old_string 替换而不是 diff/patch？</h3>
+<p>diff 格式对人类友好但对 LLM 复杂——需要精确计算行号偏移。<code>old_string → new_string</code> 查找替换对 LLM 更自然：它已经看过文件内容，知道要改哪一段。</p>
+
+<hr>
+
+<h2 id="extend">十七、如何扩展</h2>
+
+<h3>添加新工具</h3>
+
+<pre><code><span class="kw">import</span> { <span class="fn">Tool</span> } <span class="kw">from</span> <span class="str">"./core"</span>;
+
+<span class="kw">export const</span> myTool: <span class="fn">Tool</span> = {
+  <span class="fn">name</span>: <span class="str">"my_tool"</span>,
+  <span class="fn">description</span>: <span class="str">"工具描述"</span>,
+  <span class="fn">schema</span>: {
+    <span class="fn">type</span>: <span class="str">"object"</span>,
+    <span class="fn">properties</span>: {
+      <span class="fn">param1</span>: { <span class="fn">type</span>: <span class="str">"string"</span>, <span class="fn">description</span>: <span class="str">"参数说明"</span> },
+    },
+    <span class="fn">required</span>: [<span class="str">"param1"</span>],
+  },
+  <span class="kw">async</span> <span class="fn">run</span>(<span class="fn">args</span>) {
+    <span class="kw">return</span> <span class="str">"结果"</span>;
+  },
+};
+
+<span class="cm">// 在 ALL_TOOLS 中注册</span>
+<span class="kw">export const</span> ALL_TOOLS = [..., myTool];</code></pre>
+
+<h3>自定义 System Prompt</h3>
+
+<pre><code><span class="kw">const</span> agent = <span class="kw">new</span> <span class="fn">PiAgent</span>({
+  ...config,
+  <span class="fn">systemPrompt</span>: <span class="str">"你是一个专注于 React 组件开发的 agent..."</span>,
+});</code></pre>
+
+<h3>更换 LLM Provider</h3>
+
+<pre><code><span class="cm">// OpenAI</span>
+<span class="kw">new</span> <span class="fn">PiAgent</span>({ <span class="fn">model</span>: <span class="str">"gpt-4o"</span>, <span class="fn">baseURL</span>: <span class="str">"https://api.openai.com/v1"</span>, apiKey })
+
+<span class="cm">// DeepSeek</span>
+<span class="kw">new</span> <span class="fn">PiAgent</span>({ <span class="fn">model</span>: <span class="str">"deepseek-chat"</span>, <span class="fn">baseURL</span>: <span class="str">"https://api.deepseek.com/v1"</span>, apiKey })
+
+<span class="cm">// Ollama 本地</span>
+<span class="kw">new</span> <span class="fn">PiAgent</span>({ <span class="fn">model</span>: <span class="str">"gemma4:e4b"</span>, <span class="fn">baseURL</span>: <span class="str">"http://localhost:11434/v1"</span>, <span class="fn">apiKey</span>: <span class="str">""</span> })</code></pre>
+
+<hr>
+
+<p style="color:var(--text2);font-size:12px;margin-top:64px">
+  PiAgent — 约 600 行 TypeScript · 零外部 Agent 依赖 · 支持 OpenAI / DeepSeek / Ollama
+</p>
+
+</main>
+
+<script>
+// Simple scroll spy
+const links = document.querySelectorAll('nav a[href^="#"]');
+const sections = [...links].map(a => document.querySelector(a.getAttribute('href')));
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (s && s.getBoundingClientRect().top < 120) current = '#' + s.id;
+  });
+  links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === current));
+});
+</script>
+
+</body>
+</html>

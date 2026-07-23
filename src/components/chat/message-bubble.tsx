@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -20,7 +20,6 @@ interface ParsedFile {
 
 function parseFiles(content: string): { files: ParsedFile[]; cleanContent: string } {
   const files: ParsedFile[] = [];
-  // Match: <!-- file: name (size) -->\n```\n...content...\n```
   const regex = /<!--\s*file:\s*(.+?)\s*\((.+?)\)\s*-->\s*\n```[\w]*\n([\s\S]*?)```/g;
   let clean = content;
   let match;
@@ -30,9 +29,7 @@ function parseFiles(content: string): { files: ParsedFile[]; cleanContent: strin
     clean = clean.replace(match[0], '');
   }
 
-  // Clean up extra blank lines
   clean = clean.replace(/\n{3,}/g, '\n\n').trim();
-
   return { files, cleanContent: clean };
 }
 
@@ -62,14 +59,9 @@ function getFileMeta(name: string) {
 
 export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
-  const [showTools, setShowTools] = useState(!!streaming);
+  const [showTools, setShowTools] = useState(false);
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
-
-  // streaming 时自动展开工具
-  useEffect(() => {
-    if (streaming) setShowTools(true);
-  }, [streaming]);
 
   const { files, cleanContent } = useMemo(
     () => parseFiles(message.content),
@@ -79,13 +71,13 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const hasMarkdown = cleanContent.length > 0;
 
   return (
-    <div className={`py-4 px-4 sm:px-8 animate-fade-in-up ${isUser ? '' : 'bg-zinc-900/30'}`}>
-      <div className="max-w-3xl mx-auto flex gap-3.5">
+    <div className={`py-4 px-8 animate-fade-in-up ${isUser ? '' : 'bg-gray-50 dark:bg-zinc-900/30'}`}>
+      <div className="flex gap-3.5">
         {/* Avatar */}
         <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
           isUser
-            ? 'bg-zinc-700 text-zinc-300'
-            : 'bg-indigo-500/20 text-indigo-300'
+            ? 'bg-gray-200 dark:bg-zinc-700 text-gray-500 dark:text-zinc-300'
+            : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-500 dark:text-indigo-300'
         }`}>
           {isUser ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -103,7 +95,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-medium text-zinc-500 mb-1 tracking-wide">
+          <div className="text-[11px] font-medium text-gray-400 dark:text-zinc-500 mb-1 tracking-wide">
             {isUser ? '你' : '{{Pi}}Agent'}
           </div>
 
@@ -111,12 +103,12 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
           {!isUser && streaming && totalTools > 0 && (
             <div className="mb-2 flex items-center gap-2">
               <span className="w-3 h-3 border-2 border-indigo-400/60 border-t-indigo-400 rounded-full animate-spin flex-shrink-0" />
-              <span className="text-[12px] text-indigo-400/80 font-medium">
+              <span className="text-[12px] text-indigo-500 dark:text-indigo-400/80 font-medium">
                 {(() => {
                   const running = message.toolCalls?.find(tc => tc.status === 'running');
                   if (running) {
                     const label = {read_file:'Reading',write_file:'Writing',edit_file:'Editing',search_code:'Searching',run_command:'Running'}[running.name] || running.name;
-                    const arg = running.arguments?.path?.toString().split('/').pop() || running.arguments?.command?.toString().slice(0,30) || '';
+                    const arg = running.args?.path?.toString().split('/').pop() || running.args?.command?.toString().slice(0,30) || '';
                     return `${label} ${arg}`;
                   }
                   return `Executing ${completedTools}/${totalTools} tools`;
@@ -133,31 +125,31 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 const showPreview = PREVIEWABLE.has(meta.ext);
                 const lines = showPreview ? f.content.split('\n') : [];
                 return (
-                  <div key={i} className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/50">
+                  <div key={i} className="border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900/50">
                     {/* File header */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-zinc-800/50 bg-zinc-900/80">
-                      <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 rounded px-1 py-0.5 min-w-[20px] text-center">
+                    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 dark:border-zinc-800/50 bg-gray-50 dark:bg-zinc-900/80">
+                      <span className="text-[10px] font-bold text-gray-500 dark:text-zinc-500 bg-gray-100 dark:bg-zinc-800 rounded px-1 py-0.5 min-w-[20px] text-center">
                         {meta.icon}
                       </span>
-                      <span className="text-[12px] font-medium text-zinc-300 font-mono truncate">
+                      <span className="text-[12px] font-medium text-gray-700 dark:text-zinc-300 font-mono truncate">
                         {f.name}
                       </span>
-                      <span className="text-[10px] text-zinc-600 ml-auto flex-shrink-0">
+                      <span className="text-[10px] text-gray-400 dark:text-zinc-600 ml-auto flex-shrink-0">
                         {f.size}{showPreview ? ` · ${lines.length} lines` : ''}
                       </span>
                     </div>
-                    {/* File preview — only for text files */}
+                    {/* File preview */}
                     {showPreview && (
-                      <div className="p-2.5 bg-zinc-950/60">
-                        <pre className="text-[11px] font-mono leading-relaxed text-zinc-400 overflow-x-auto max-h-48 overflow-y-auto">
+                      <div className="p-2.5 bg-gray-50 dark:bg-zinc-950/60">
+                        <pre className="text-[11px] font-mono leading-relaxed text-gray-600 dark:text-zinc-400 overflow-x-auto max-h-48 overflow-y-auto">
                           {lines.slice(0, 50).map((line, li) => (
                             <div key={li} className="flex">
-                              <span className="text-zinc-700 select-none w-8 flex-shrink-0 text-right pr-3">{li + 1}</span>
+                              <span className="text-gray-300 dark:text-zinc-700 select-none w-8 flex-shrink-0 text-right pr-3">{li + 1}</span>
                               <span>{line || ' '}</span>
                             </div>
                           ))}
                           {lines.length > 50 && (
-                            <div className="text-zinc-600 mt-1">... {lines.length - 50} more lines</div>
+                            <div className="text-gray-400 dark:text-zinc-600 mt-1">... {lines.length - 50} more lines</div>
                           )}
                         </pre>
                       </div>
@@ -168,15 +160,15 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
             </div>
           )}
 
-          {/* Message text — only show if there's meaningful content beyond the file prefix */}
+          {/* Message text */}
           {isUser ? (
             cleanContent && !/^Attached \d+ file/.test(cleanContent) ? (
-              <div className="text-[15px] leading-relaxed text-zinc-200 whitespace-pre-wrap break-words">
+              <div className="text-[15px] leading-relaxed text-gray-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
                 {cleanContent}
               </div>
             ) : null
           ) : hasMarkdown ? (
-            <div className="prose max-w-none text-zinc-300">
+            <div className="prose max-w-none text-gray-700 dark:text-zinc-300">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
@@ -191,7 +183,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
                 <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
               </div>
-              <span className="text-[12px] text-zinc-500">Working...</span>
+              <span className="text-[12px] text-gray-400 dark:text-zinc-500">Working...</span>
             </div>
           ) : streaming && !hasMarkdown && totalTools === 0 ? (
             <div className="flex items-center gap-2">
@@ -200,7 +192,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
                 <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
               </div>
-              <span className="text-[12px] text-zinc-500">Thinking...</span>
+              <span className="text-[12px] text-gray-400 dark:text-zinc-500">Thinking...</span>
             </div>
           ) : null}
 
@@ -209,7 +201,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
             <div className="mt-2">
               <button
                 onClick={() => setShowTools(!showTools)}
-                className="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-400 transition-colors"
+                className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-400 transition-colors"
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                   className={`transition-transform ${showTools ? 'rotate-90' : ''}`}>

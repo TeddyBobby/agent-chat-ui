@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{Pi}}Agent — AI 编程助手</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #08090a;
+      --panel: #0f1011;
+      --surface: #191a1b;
+      --surface-hover: #28282c;
+      --text: #f7f8f8;
+      --text-secondary: #d0d6e0;
+      --text-muted: #8a8f98;
+      --text-subtle: #62666d;
+      --accent: #5e6ad2;
+      --accent-bright: #7170ff;
+      --accent-hover: #828fff;
+      --border: 1px solid rgba(255,255,255,0.08);
+      --border-subtle: 1px solid rgba(255,255,255,0.05);
+      --radius: 6px;
+      --radius-lg: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { font-feature-settings: "cv01","ss03"; scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.5; -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--panel); border-bottom: var(--border-subtle);
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto; padding: 0 32px;
+      height: 52px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 600; color: var(--text);
+      text-decoration: none; letter-spacing: -0.3px;
+    }
+    .nav-logo-icon {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { font-size: 14px; font-weight: 500; color: var(--text-secondary); text-decoration: none; transition: color 0.15s; }
+    .nav-links a:hover { color: var(--text); }
+    .btn {
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500;
+      padding: 7px 16px; border-radius: var(--radius); border: none; cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+      transition: all 0.15s; letter-spacing: -0.2px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost {
+      background: rgba(255,255,255,0.02); color: var(--text-secondary);
+      border: var(--border);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+    /* Hero */
+    .hero {
+      max-width: 1200px; margin: 0 auto; padding: 100px 32px 80px;
+    }
+    .hero-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 9999px;
+      border: var(--border); font-size: 12px; font-weight: 500;
+      color: var(--text-muted); margin-bottom: 28px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #10b981;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .hero h1 {
+      font-size: clamp(40px, 5vw, 56px); font-weight: 600;
+      line-height: 1.07; letter-spacing: -1.2px; margin-bottom: 20px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--accent-bright), #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 17px; font-weight: 400; color: var(--text-muted);
+      line-height: 1.7; margin-bottom: 32px; max-width: 460px;
+    }
+    .hero-actions { display: flex; gap: 10px; }
+
+    /* Hero visual */
+    .hero-visual {
+      position: relative;
+    }
+    .hero-card {
+      background: var(--surface); border: var(--border); border-radius: var(--radius-lg);
+      padding: 24px; position: relative; overflow: hidden;
+    }
+    .hero-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    }
+    .hero-card-line {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    }
+    .hero-card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .hero-card-dot.r { background: #ff5b4f; }
+    .hero-card-dot.y { background: #f59e0b; }
+    .hero-card-dot.g { background: #10b981; }
+    .hero-card-title {
+      font-size: 13px; font-weight: 500; color: var(--text-muted); margin-left: 4px;
+    }
+    .hero-card-code {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.8; color: var(--text-muted);
+    }
+    .hero-card-code .prompt { color: var(--accent-bright); }
+    .hero-card-code .cmd { color: var(--text); }
+    .hero-card-code .output { color: #10b981; }
+    .hero-card-code .comment { color: var(--text-subtle); }
+    .hero-card-cursor {
+      display: inline-block; width: 8px; height: 15px; background: var(--text);
+      animation: blink 1s step-end infinite; vertical-align: text-bottom;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Floating elements */
+    .hero-float {
+      position: absolute; background: var(--surface); border: var(--border);
+      border-radius: 8px; padding: 12px 14px; font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .hero-float-1 { top: -16px; right: -16px; color: #10b981; }
+    .hero-float-2 { bottom: -20px; left: -20px; color: var(--accent-bright); }
+
+    /* Sections */
+    .section { max-width: 1200px; margin: 0 auto; padding: 0 32px 120px; }
+    .section-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500;
+      color: var(--accent-bright); text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .section h2 {
+      font-size: clamp(28px, 3.5vw, 36px); font-weight: 600;
+      line-height: 1.15; letter-spacing: -0.72px; margin-bottom: 14px;
+    }
+    .section-sub {
+      font-size: 16px; color: var(--text-muted); margin-bottom: 48px;
+      max-width: 480px;
+    }
+
+    /* Features */
+    .features {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: rgba(255,255,255,0.05); border-radius: var(--radius-lg);
+      overflow: hidden; border: var(--border-subtle);
+    }
+    .feature {
+      background: var(--panel); padding: 40px 32px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .feature-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.04); font-size: 20px;
+    }
+    .feature h4 { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+    .feature p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+    /* Steps */
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: rgba(255,255,255,0.05); border-radius: var(--radius-lg);
+      overflow: hidden; border: var(--border-subtle);
+    }
+    .step {
+      background: var(--panel); padding: 44px 36px 40px;
+      display: flex; flex-direction: column; position: relative;
+    }
+    .step-num {
+      font-size: 72px; font-weight: 700;
+      color: rgba(255,255,255,0.03); position: absolute;
+      top: 16px; right: 28px; line-height: 1;
+      pointer-events: none; user-select: none;
+    }
+    .step h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+    .step code {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      background: rgba(94,106,210,0.1); padding: 2px 8px; border-radius: 4px;
+      color: var(--accent-bright);
+    }
+
+    /* Models */
+    .model-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 9999px;
+      border: var(--border-subtle); font-size: 13px; font-weight: 500;
+      color: var(--text-secondary); margin: 0 4px 8px 0;
+    }
+    .model-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .model-badge .dot.deepseek { background: #6366f1; }
+    .model-badge .dot.openai { background: #10b981; }
+    .model-badge .dot.google { background: #f59e0b; }
+    .model-badge .dot.local { background: var(--text-subtle); }
+
+    /* CTA */
+    .cta {
+      max-width: 1200px; margin: 0 auto; padding: 0 32px 80px;
+    }
+    .cta-card {
+      background: var(--surface); border: var(--border); border-radius: 16px;
+      padding: 48px; text-align: center; color: var(--text);
+    }
+
+    /* Footer */
+    footer {
+      border-top: var(--border-subtle); padding: 40px 32px;
+      text-align: center;
+    }
+    footer p { font-size: 13px; color: var(--text-subtle); }
+    footer a { color: var(--text-muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+      .features, .steps { grid-template-columns: 1fr; }
+      .hero-visual { max-width: 500px; margin: 0 auto; }
+      .hero-float-1 { right: 0; }
+    }
+    @media (max-width: 600px) {
+      .hero { padding: 60px 20px 40px; }
+      .section { padding: 0 20px 80px; }
+      .cta-card { padding: 48px 28px; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      {{Pi}}Agent
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#models">模型</a>
+      <a href="https://github.com/TeddyBobby/agent-chat-ui" target="_blank">GitHub</a>
+      <a href="/chat" class="btn btn-primary">打开工作台</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-grid">
+    <div>
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        开源 · 本地运行 · 隐私优先
+      </div>
+      <h1>你的<br><span>AI 编程</span>搭档</h1>
+      <p>对话式操作代码库——读文件、写代码、搜项目、跑命令。AI 不再只是聊天，它直接在你的项目里动手。</p>
+      <div class="hero-actions">
+        <a href="/chat" class="btn btn-primary" style="padding:10px 22px; font-size:15px;">开始使用 →</a>
+        <a href="#how" class="btn btn-ghost" style="padding:10px 22px; font-size:15px;">怎么用</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-card">
+        <div class="hero-card-line">
+          <span class="hero-card-dot r"></span>
+          <span class="hero-card-dot y"></span>
+          <span class="hero-card-dot g"></span>
+          <span class="hero-card-title">{{Pi}}Agent · Chat</span>
+        </div>
+
+        <!-- User message -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;align-items:flex-start;">
+          <div style="width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;color:var(--text-subtle);margin-bottom:4px;">你</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.5;">帮我把 user 模块的错误处理重构一下</div>
+          </div>
+        </div>
+
+        <!-- AI response -->
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <div style="width:24px;height:24px;border-radius:6px;background:rgba(94,106,210,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;color:var(--text-subtle);margin-bottom:4px;">{{Pi}}Agent</div>
+
+            <!-- Tool summary (collapsed by default) -->
+            <div style="display:flex;align-items:center;gap:5px;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <span style="font-size:10px;color:var(--text-muted);">1/3 tools</span>
+              <span style="display:flex;align-items:center;gap:4px;margin-left:4px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span>
+                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span>
+                <span style="width:6px;height:6px;border:1.5px solid rgba(94,106,210,0.5);border-top-color:var(--accent-bright);border-radius:50%;animation:spin 1s linear infinite;"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input bar -->
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);font-size:12px;color:var(--text-subtle);">
+            告诉 {{Pi}}Agent 做什么...
+          </div>
+          <div style="font-size:11px;font-weight:500;color:var(--accent-bright);padding:6px 10px;border:1px solid rgba(94,106,210,0.2);border-radius:6px;background:rgba(94,106,210,0.05);white-space:nowrap;">
+            DeepSeek V4
+          </div>
+        </div>
+      </div>
+      <div class="hero-float hero-float-1">3 tools · 6.2s</div>
+      <div class="hero-float hero-float-2">DeepSeek V4 · 1M ctx</div>
+    </div>
+
+    <style>
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </div>
+</section>
+
+<section class="section" id="how" style="padding-bottom:100px">
+  <div class="section-label">Quick Start</div>
+  <h2>三步开始</h2>
+  <p class="section-sub">从打开项目到 AI 开始工作，不到一分钟。</p>
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">01</span>
+      <h3>选择项目目录</h3>
+      <p>点击「新建对话」浏览并选择代码目录。每个会话绑定独立工作区，互不干扰。</p>
+    </div>
+    <div class="step">
+      <span class="step-num">02</span>
+      <h3>配置大模型</h3>
+      <p>支持 <code>DeepSeek V4</code> · <code>GPT-5.6</code> · <code>Gemini 3.1</code> · <code>Claude</code>，也支持本地 <code>Ollama</code> 免 Key。</p>
+    </div>
+    <div class="step">
+      <span class="step-num">03</span>
+      <h3>发任务</h3>
+      <p>告诉 AI 你的需求——修 bug、加功能、重构代码。流式输出实时反馈，工具调用全程可见。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features" style="padding-bottom:100px">
+  <div class="section-label">Capabilities</div>
+  <h2>不只是聊天</h2>
+  <p class="section-sub">一套完整的 coding agent 工具链。</p>
+  <div class="features">
+    <div class="feature"><div class="feature-icon">📖</div><h4>读写文件</h4><p>读取任意文件，精准编辑替换，自动创建目录。</p></div>
+    <div class="feature"><div class="feature-icon">🔍</div><h4>搜索代码</h4><p>正则搜索整个代码库，快速定位函数和模式。</p></div>
+    <div class="feature"><div class="feature-icon">⚡</div><h4>执行命令</h4><p>安装依赖、启动服务、运行测试，全在终端。</p></div>
+    <div class="feature"><div class="feature-icon">🔄</div><h4>多会话并发</h4><p>同时处理多个项目，各自独立运行互不等待。</p></div>
+    <div class="feature"><div class="feature-icon">💬</div><h4>流式渲染</h4><p>逐 token 实时输出，工具调用状态可视化。</p></div>
+    <div class="feature"><div class="feature-icon">📦</div><h4>归档管理</h4><p>归档历史对话，随时恢复，数据持续化存储。</p></div>
+  </div>
+</section>
+
+<section class="section" id="models" style="padding-bottom:100px">
+  <div class="section-label">Models</div>
+  <h2>前沿模型接入</h2>
+  <p class="section-sub">任意 OpenAI 兼容 API 即插即用。</p>
+  <div>
+    <span class="model-badge"><span class="dot deepseek"></span>DeepSeek V4 Pro</span>
+    <span class="model-badge"><span class="dot deepseek"></span>DeepSeek V4 Flash</span>
+    <span class="model-badge"><span class="dot openai"></span>GPT-5.6</span>
+    <span class="model-badge"><span class="dot openai"></span>GPT-5.4</span>
+    <span class="model-badge"><span class="dot google"></span>Gemini 3.1 Pro</span>
+    <span class="model-badge"><span class="dot google"></span>Gemini 2.5 Pro</span>
+    <span class="model-badge"><span class="dot local"></span>Claude Sonnet 5</span>
+    <span class="model-badge"><span class="dot local"></span>Gemma 4 12B</span>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="cta-card">
+    <h2 style="font-size:24px;font-weight:600;letter-spacing:-0.4px;margin-bottom:8px;">准备好开始了？</h2>
+    <p style="font-size:15px;color:var(--text-muted);margin-bottom:24px;">本地运行，数据不出你的电脑。</p>
+    <a href="/chat" class="btn btn-primary" style="padding:10px 24px;font-size:15px;">打开工作台 →</a>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <a href="https://github.com/TeddyBobby/agent-chat-ui" target="_blank">GitHub</a>
+    &nbsp;·&nbsp;
+    Built with Next.js + PiAgent &nbsp;·&nbsp;
+    Open Source
+  </p>
+</footer>
+
+</body>
+</html>

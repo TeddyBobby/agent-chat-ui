@@ -13,6 +13,8 @@ interface ChatInputProps {
   workdir: string;
   onWorkdirChange: (dir: string) => void;
   disabled: boolean;
+  contextTokens?: number;
+  contextLimit?: number;
 }
 
 interface AttachedFile {
@@ -23,7 +25,7 @@ interface AttachedFile {
 
 export function ChatInput({
   onSend, onModelChange, selectedModel, apiKey, onApiKeyChange,
-  workdir, onWorkdirChange, disabled,
+  workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -67,21 +69,19 @@ export function ChatInput({
     const newFiles: AttachedFile[] = [];
 
     for (const file of selected) {
-      // Skip binary/large files
       if (file.size > 500 * 1024) {
-        newFiles.push({ name: file.name, content: `[File too large: ${formatSize(file.size)}]`, size: file.size });
+        newFiles.push({ name: file.name, content: `[文件过大: ${formatSize(file.size)}]`, size: file.size });
         continue;
       }
       try {
         const text = await file.text();
         newFiles.push({ name: file.name, content: text, size: file.size });
       } catch {
-        newFiles.push({ name: file.name, content: '[Cannot read file]', size: file.size });
+        newFiles.push({ name: file.name, content: '[无法读取]', size: file.size });
       }
     }
 
     setFiles(prev => [...prev, ...newFiles]);
-    // Reset input so same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -90,47 +90,49 @@ export function ChatInput({
   };
 
   const selectedModelInfo = MODELS.find(m => m.id === selectedModel);
+  const ctxPct = contextLimit > 0 ? Math.min(100, Math.round((contextTokens / contextLimit) * 100)) : 0;
+  const fmt = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n);
 
   return (
-    <div className="px-4 sm:px-8 pb-4 pt-2">
-      <div className="max-w-3xl mx-auto">
+    <div className="px-8 pb-4 pt-2">
+      <div>
         {/* Settings bar */}
         {showSettings && (
-          <div className="mb-3 p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 animate-fade-in-up">
+          <div className="mb-3 p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 animate-fade-in-up">
             <div className="flex gap-3 items-center flex-wrap">
-              <label className="text-[12px] font-medium text-zinc-400 flex items-center gap-2">
-                Model
+              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+                模型
                 <select
                   value={selectedModel}
                   onChange={(e) => onModelChange(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-[12px] text-zinc-200 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500/50 transition-colors"
                 >
                   {MODELS.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </label>
-              <label className="text-[12px] font-medium text-zinc-400 flex items-center gap-2">
-                Key
+              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+                密钥
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => onApiKeyChange(e.target.value)}
                   placeholder="sk-..."
-                  className="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-[12px] text-zinc-200 w-40 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 w-40 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                 />
               </label>
             </div>
             <div className="flex gap-2 items-center mt-2.5">
-              <label className="text-[12px] font-medium text-zinc-400 flex items-center gap-2 flex-1">
-                Project
+              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2 flex-1">
+                项目
                 <div className="flex gap-1.5 flex-1">
                   <input
                     type="text"
                     value={workdir}
                     onChange={(e) => onWorkdirChange(e.target.value)}
                     placeholder="~/projects/my-app"
-                    className="px-2.5 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-[12px] text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                   />
                   <DirectoryPicker value={workdir} onChange={onWorkdirChange} />
                 </div>
@@ -143,17 +145,35 @@ export function ChatInput({
         {files.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {files.map((f, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 font-mono">
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-[11px] text-indigo-600 dark:text-indigo-300 font-mono">
                 {f.name} ({formatSize(f.size)})
-                <button onClick={() => removeFile(i)} className="hover:text-red-400 transition-colors ml-0.5">&times;</button>
+                <button onClick={() => removeFile(i)} className="hover:text-red-500 transition-colors ml-0.5">&times;</button>
               </span>
             ))}
           </div>
         )}
 
+        {/* Context bar */}
+        {contextTokens > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full bg-gray-200 dark:bg-zinc-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  ctxPct > 80 ? 'bg-red-400' : ctxPct > 50 ? 'bg-amber-400' : 'bg-indigo-400/60'
+                }`}
+                style={{ width: `${Math.max(ctxPct, 2)}%` }}
+              />
+            </div>
+            <span className={`text-[10px] font-mono flex-shrink-0 ${
+              ctxPct > 80 ? 'text-red-400' : ctxPct > 50 ? 'text-amber-500' : 'text-gray-400 dark:text-zinc-500'
+            }`}>
+              {ctxPct}% · {fmt(contextTokens)} / {fmt(contextLimit)}
+            </span>
+          </div>
+        )}
+
         {/* Input row */}
-        <div className="flex gap-2 items-end bg-zinc-900 rounded-2xl border border-zinc-800 focus-within:border-indigo-500/30 focus-within:shadow-lg focus-within:shadow-indigo-500/5 transition-all px-4 py-2.5">
-          {/* File attach */}
+        <div className="flex gap-2 items-end bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 focus-within:border-indigo-500/30 focus-within:shadow-lg focus-within:shadow-indigo-500/5 transition-all px-4 py-2.5">
           <input
             ref={fileInputRef}
             type="file"
@@ -165,8 +185,8 @@ export function ChatInput({
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 disabled:opacity-20 transition-colors flex-shrink-0"
-            title="Attach files"
+            className="p-1.5 rounded-lg text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 disabled:opacity-20 transition-colors flex-shrink-0"
+            title="添加文件"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -178,30 +198,28 @@ export function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={workdir ? `Working in ${workdir.split('/').pop()}...` : 'Tell {{Pi}}Agent what to do...'}
+            placeholder={workdir ? `${workdir.split('/').pop()} 项目中...` : '告诉 {{Pi}}Agent 做什么...'}
             disabled={disabled}
             rows={1}
-            className="flex-1 resize-none bg-transparent px-1 py-1 text-[15px] leading-relaxed focus:outline-none disabled:opacity-40 placeholder-zinc-600 text-zinc-200"
+            className="flex-1 resize-none bg-transparent px-1 py-1 text-[15px] leading-relaxed focus:outline-none disabled:opacity-40 placeholder-gray-400 dark:placeholder-zinc-600 text-gray-800 dark:text-zinc-200"
           />
 
           <div className="flex items-center gap-1.5">
-            {/* Model badge */}
             <button
               onClick={() => setShowSettings(!showSettings)}
               className={`text-[11px] px-2 py-1 rounded-md font-medium transition-all flex-shrink-0 ${
                 showSettings
-                  ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'
-                  : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-700'
+                  ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20'
+                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300 border border-transparent hover:border-gray-300 dark:hover:border-zinc-700'
               }`}
             >
               {selectedModelInfo?.name || selectedModel}
             </button>
 
-            {/* Send */}
             <button
               onClick={handleSubmit}
               disabled={disabled || (!input.trim() && files.length === 0)}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              className="p-1.5 rounded-lg text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-200 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />
@@ -212,8 +230,8 @@ export function ChatInput({
         </div>
 
         {/* Hint */}
-        <p className="text-[11px] text-zinc-600 text-center mt-2">
-          Enter to send · Shift+Enter for new line · 📎 to attach files
+        <p className="text-[11px] text-gray-400 dark:text-zinc-600 text-center mt-2">
+          回车发送 · Shift+回车换行 · 📎 添加文件
         </p>
       </div>
     </div>

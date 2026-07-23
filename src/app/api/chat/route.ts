@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
     apiKey: key,
     model: model || "gpt-4o",
     baseURL: apiBase,
-    maxSteps: 25,
+    maxSteps: 60,
+    abortSignal: req.signal,
     systemPrompt: `你是一个 coding agent，当前工作目录是 ${projectDir}。所有文件路径都相对于这个目录。`,
   });
 
@@ -64,9 +65,11 @@ export async function POST(req: NextRequest) {
 
   // Web ReadableStream — 浏览器 fetch 的 response.body.getReader() 需要这个
   const encoder = new TextEncoder();
+  let done = false;
   const stream = new ReadableStream({
     start(controller) {
       function emit(event: AgentEvent) {
+        if (done) return;
         const line = `data: ${JSON.stringify(event)}\n\n`;
         controller.enqueue(encoder.encode(line));
       }
@@ -76,9 +79,14 @@ export async function POST(req: NextRequest) {
       let lastToolCallId = "";
 
       agent.on((stepEvent) => {
+        if (done) return;
         try {
           switch (stepEvent.type) {
             case "thought":
+              break;
+            case "text_chunk":
+              // 流式文本块 → 立即发送到前端逐字渲染
+              emit({ type: "text", content: stepEvent.content });
               break;
             case "action":
               lastToolCallId = `tc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -86,7 +94,7 @@ export async function POST(req: NextRequest) {
                 type: "tool_call",
                 id: lastToolCallId,
                 name: stepEvent.toolName || "unknown",
-                arguments: stepEvent.toolArgs || {},
+                args: stepEvent.toolArgs || {},
               });
               break;
             case "observation":
@@ -111,6 +119,10 @@ export async function POST(req: NextRequest) {
           try { emit({ type: "done" }); } catch {}
           try { controller.close(); } catch {}
         });
+    },
+    cancel() {
+      // 客户端断开，阻止后续 emit
+      done = true;
     },
   });
 

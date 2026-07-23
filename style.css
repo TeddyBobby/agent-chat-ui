@@ -1,0 +1,35 @@
+body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #282c34; /* 深色背景 */
+    color: #61dafb; /* 青色文字 */
+}
+
+.clock-container {
+    text-align: center;
+    padding: 40px;
+    border-radius: 15px;
+    background-color: #3a3f47;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+    margin-bottom: 20px;
+    font-size: 2em;
+    color: #ffffff;
+}
+
+.clock-display {
+    font-size: 4em;
+    letter-spacing: 5px;
+    margin-bottom: 15px;
+}
+
+.date-display {
+    font-size: 1.8em;
+    color: #cccccc;
+}

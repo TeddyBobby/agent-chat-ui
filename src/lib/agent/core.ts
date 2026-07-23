@@ -28,6 +28,7 @@ export interface AgentConfig {
   baseURL?: string;
   maxSteps?: number;
   systemPrompt?: string;
+  abortSignal?: AbortSignal;
 }
 
 interface Message {
@@ -42,7 +43,7 @@ interface Message {
 }
 
 export interface StepEvent {
-  type: "thought" | "action" | "observation" | "answer";
+  type: "thought" | "action" | "observation" | "answer" | "text_chunk";
   content: string;
   toolName?: string;
   toolArgs?: Record<string, unknown>;
@@ -79,15 +80,17 @@ ${toolList}
 
 export class PiAgent {
   private tools = new Map<string, Tool>();
-  private config: Required<AgentConfig>;
+  private config: Required<Omit<AgentConfig, 'abortSignal'>> & Pick<AgentConfig, 'abortSignal'>;
   private onStep: StepCallback | null = null;
+  private streamedText = false;
 
   constructor(config: AgentConfig) {
     this.config = {
       baseURL: "https://api.openai.com/v1",
-      maxSteps: 25,
+      maxSteps: 60,
       systemPrompt: "",
       ...config,
+      abortSignal: config.abortSignal ?? undefined,
     };
   }
 
@@ -133,6 +136,12 @@ export class PiAgent {
     }));
 
     for (let step = 0; step < this.config.maxSteps; step++) {
+      // 客户端断开连接时中止
+      if (this.config.abortSignal?.aborted) {
+        this.emit({ type: "answer", content: "已取消（客户端断开）" });
+        return "已取消";
+      }
+      this.streamedText = false;
       const data = await this.callLLM(messages, openaiTools);
       const msg: Message = data.choices[0].message;
 
@@ -166,6 +175,9 @@ export class PiAgent {
             toolArgs: args,
           });
 
+          // 让 SSE 先发送 tool_call，前端渲染 running spinner
+          await new Promise(r => setTimeout(r, 50));
+
           try {
             const result = await tool.run(args);
             messages.push({ role: "tool", tool_call_id: tc.id, content: result });
@@ -183,7 +195,10 @@ export class PiAgent {
       const answer = msg.content || "";
       if (answer) {
         this.emit({ type: "thought", content: "任务完成" });
-        this.emit({ type: "answer", content: answer });
+        // 流式模式下文本已通过 text_chunk 发送,不再重复
+        if (!this.streamedText) {
+          this.emit({ type: "answer", content: answer });
+        }
       }
       return answer;
     }
@@ -204,6 +219,7 @@ export class PiAgent {
       model: this.config.model,
       messages,
       temperature: 0,
+      stream: true,
     };
     if (tools.length > 0) {
       body.tools = tools;
@@ -218,14 +234,12 @@ export class PiAgent {
       throw new Error(`[step1 body encode] ${e.message}`);
     }
 
-    // Step 2: fetch
+    // Step 2: fetch with streaming
     let res: Response;
     try {
-      // 构建安全的 headers — 确保所有值都是纯 ASCII
       const hdrs = new Headers();
       hdrs.set("Content-Type", "application/json");
       if (this.config.apiKey) {
-        // 去除 API key 中的非 ASCII 字符，避免 ByteString 错误
         const safeKey = this.config.apiKey.replace(/[^\x00-\x7F]/g, "");
         hdrs.set("Authorization", `Bearer ${safeKey}`);
       }
@@ -233,12 +247,12 @@ export class PiAgent {
         method: "POST",
         headers: hdrs,
         body: new Uint8Array(bodyBytes),
+        signal: this.config.abortSignal,
       });
     } catch (e: any) {
       throw new Error(`[step2 fetch] ${e.message}`);
     }
 
-    // Step 3: read response
     if (!res.ok) {
       try {
         const text = await res.text();
@@ -249,12 +263,93 @@ export class PiAgent {
       }
     }
 
-    // Step 4: parse JSON
+    // Step 3: read SSE stream
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("[step3] No response body reader");
+
+    const decoder = new TextDecoder();
+    let textContent = "";
+    const toolCallAcc = new Map<number, { id: string; name: string; args: string }>();
+
     try {
-      return res.json();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+          const jsonStr = trimmed.slice(6);
+          if (jsonStr === "[DONE]") continue;
+
+          let parsed: any;
+          try {
+            parsed = JSON.parse(jsonStr);
+          } catch {
+            continue; // skip malformed chunks
+          }
+
+          const delta = parsed.choices?.[0]?.delta;
+          if (!delta) continue;
+
+          // Text chunk → stream to frontend immediately
+          if (delta.content) {
+            const txt = String(delta.content);
+            textContent += txt;
+            this.streamedText = true;
+            this.emit({ type: "text_chunk", content: txt });
+          }
+
+          // Tool call accumulation
+          if (delta.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index ?? 0;
+              if (!toolCallAcc.has(idx)) {
+                toolCallAcc.set(idx, {
+                  id: tc.id || "",
+                  name: tc.function?.name || "",
+                  args: "",
+                });
+              }
+              const acc = toolCallAcc.get(idx)!;
+              if (tc.id) acc.id = tc.id;
+              if (tc.function?.name) acc.name = tc.function.name;
+              if (tc.function?.arguments) acc.args += tc.function.arguments;
+            }
+          }
+        }
+      }
     } catch (e: any) {
-      throw new Error(`[step4 json parse] ${e.message}`);
+      throw new Error(`[step3 stream read] ${e.message}`);
+    } finally {
+      try { reader.cancel(); } catch {}
     }
+
+    // Build final response in OpenAI format
+    const finalToolCalls =
+      toolCallAcc.size > 0
+        ? Array.from(toolCallAcc.values()).map((tc) => ({
+            id: tc.id || `call_${Math.random().toString(36).slice(2, 10)}`,
+            type: "function" as const,
+            function: { name: tc.name, arguments: tc.args },
+          }))
+        : undefined;
+
+    return {
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: textContent || null,
+            ...(finalToolCalls ? { tool_calls: finalToolCalls } : {}),
+          },
+        },
+      ],
+    };
   }
 
   private emit(event: StepEvent) {

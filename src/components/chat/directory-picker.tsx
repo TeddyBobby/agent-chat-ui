@@ -17,10 +17,13 @@ interface BrowseResult {
 interface DirectoryPickerProps {
   value: string;
   onChange: (path: string) => void;
+  open?: boolean;
+  onClose?: () => void;
 }
 
-export function DirectoryPicker({ value, onChange }: DirectoryPickerProps) {
-  const [open, setOpen] = useState(false);
+export function DirectoryPicker({ value, onChange, open: controlledOpen, onClose }: DirectoryPickerProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const [data, setData] = useState<BrowseResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,57 +36,74 @@ export function DirectoryPicker({ value, onChange }: DirectoryPickerProps) {
     finally { setLoading(false); }
   };
 
-  const openBrowser = () => {
-    setOpen(true);
-    if (!data) browse(value || '~');
+  const openPicker = () => {
+    if (controlledOpen !== undefined) return; // 外部控制
+    setInternalOpen(true);
+    if (!data) browse(value || process.env.HOME || '~');
+  };
+
+  const closePicker = () => {
+    if (controlledOpen !== undefined) {
+      onClose?.();
+      return;
+    }
+    setInternalOpen(false);
   };
 
   const selectDir = (dir: string) => {
     onChange(dir);
-    setOpen(false);
+    closePicker();
   };
+
+  // 外部打开时自动加载
+  useEffect(() => {
+    if (open && !data) browse(value || process.env.HOME || '~');
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closePicker(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
   return (
     <>
-      <button
-        type="button"
-        onClick={openBrowser}
-        className="px-2 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700/80 transition-colors flex-shrink-0"
-        title="Browse"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-zinc-400">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-        </svg>
-      </button>
+      {/* 内部模式的触发按钮 */}
+      {controlledOpen === undefined && (
+        <button
+          type="button"
+          onClick={openPicker}
+          className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700/80 transition-colors flex-shrink-0"
+          title="Browse"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-gray-400 dark:text-zinc-400">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+      )}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closePicker}>
           <div
-            className="bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-800 w-[440px] max-h-[65vh] flex flex-col overflow-hidden animate-fade-in-up"
+            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-zinc-800 w-[440px] max-h-[65vh] flex flex-col overflow-hidden animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-zinc-200">Select Project</span>
-              <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-gray-800 dark:text-zinc-200">选择项目目录</span>
+              <button onClick={closePicker} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
 
             {/* Breadcrumb */}
             {data && (
-              <div className="px-4 py-2 border-b border-zinc-800/50 flex items-center gap-1 text-[11px] overflow-x-auto">
+              <div className="px-4 py-2 border-b border-gray-200 dark:border-zinc-800/50 flex items-center gap-1 text-[11px] overflow-x-auto">
                 {data.breadcrumb.map((crumb, i) => (
                   <span key={crumb.path} className="flex items-center gap-1 flex-shrink-0">
-                    {i > 0 && <span className="text-zinc-700">/</span>}
-                    <button onClick={() => browse(crumb.path)} className="text-indigo-400 hover:text-indigo-300 transition-colors">
+                    {i > 0 && <span className="text-gray-300 dark:text-zinc-700">/</span>}
+                    <button onClick={() => browse(crumb.path)} className="text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors">
                       {crumb.name}
                     </button>
                   </span>
@@ -100,8 +120,8 @@ export function DirectoryPicker({ value, onChange }: DirectoryPickerProps) {
               ) : data ? (
                 <>
                   {data.parent && (
-                    <button onClick={() => browse(data.parent!)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-800/50 text-[13px] text-zinc-400 transition-colors">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-500"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <button onClick={() => browse(data.parent!)} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 text-[13px] text-gray-500 dark:text-zinc-400 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 dark:text-zinc-500"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                       ..
                     </button>
                   )}
@@ -110,30 +130,30 @@ export function DirectoryPicker({ value, onChange }: DirectoryPickerProps) {
                       key={d.path}
                       onClick={() => browse(d.path)}
                       onDoubleClick={() => selectDir(d.path)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-800/50 text-[13px] text-zinc-300 group transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 text-[13px] text-gray-700 dark:text-zinc-300 group transition-colors"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-500"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 dark:text-zinc-500"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                       <span className="flex-1 text-left truncate">{d.name}</span>
-                      <span className="text-[10px] text-indigo-500/0 group-hover:text-indigo-500/60 transition-all">select</span>
+                      <span className="text-[10px] text-indigo-500/0 group-hover:text-indigo-500/60 transition-all">双击选择</span>
                     </button>
                   ))}
                   {data.dirs.length === 0 && !data.parent && (
-                    <p className="text-[12px] text-zinc-500 text-center py-10">Empty</p>
+                    <p className="text-[12px] text-gray-400 dark:text-zinc-500 text-center py-10">空目录</p>
                   )}
                 </>
               ) : null}
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-2.5 border-t border-zinc-800 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-600 font-mono truncate max-w-[280px]">
+            <div className="px-4 py-2.5 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between">
+              <span className="text-[11px] text-gray-400 dark:text-zinc-600 font-mono truncate max-w-[280px]">
                 {data?.current || value}
               </span>
               <button
                 onClick={() => data && selectDir(data.current)}
-                className="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-[12px] font-medium hover:bg-indigo-500/30 border border-indigo-500/20 transition-all"
+                className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 text-[12px] font-medium hover:bg-indigo-100 dark:hover:bg-indigo-500/30 border border-indigo-200 dark:border-indigo-500/20 transition-all"
               >
-                Select
+                选择此目录
               </button>
             </div>
           </div>
