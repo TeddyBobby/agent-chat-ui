@@ -56,6 +56,104 @@ Copy `.env.example` to `.env.local`:
 | `DEEPSEEK_API_KEY` | DeepSeek API key |
 | `DEEPSEEK_BASE_URL` | DeepSeek base URL (default: `https://api.deepseek.com/v1`) |
 
+## Architecture — PiAgent Framework
+
+The agent is powered by **PiAgent**, a minimal ReAct (Reasoning + Acting) loop with native function calling. All agent logic lives in ~250 lines of TypeScript with zero framework dependencies.
+
+### Core Loop
+
+```
+User Message → System Prompt + Tool Definitions → LLM (function calling)
+                                                      │
+                                    ┌─────────────────┘
+                                    ▼
+                            LLM returns tool_calls?
+                               │          │
+                              YES         NO
+                               │          │
+                               ▼          ▼
+                         Execute tools   Final answer
+                               │          │
+                               ▼          │
+                         Tool results     │
+                               │          │
+                               └──────────┘
+                                    │
+                                    ▼
+                            Send back to LLM
+                              (loop until done or max steps)
+```
+
+### Key Abstractions
+
+**`Tool`** — a typed interface every tool must implement:
+
+```ts
+interface Tool {
+  name: string;
+  description: string;
+  schema: ToolSchema;           // JSON Schema for arguments
+  run(args: Record<string, unknown>): Promise<string>;
+}
+```
+
+**`PiAgent`** — the agent runtime:
+
+```ts
+const agent = new PiAgent({ apiKey, model, baseURL, maxSteps });
+agent.use(readTool).use(writeTool).use(searchTool).use(execTool);
+agent.on((event) => { /* stream events to UI */ });
+const answer = await agent.run("find all TODOs and create a report");
+```
+
+1. Builds the system prompt with tool descriptions
+2. Sends messages + tool definitions to the LLM via native function calling
+3. If the LLM returns `tool_calls` → executes tools → feeds results back → loops
+4. If the LLM returns plain text → that's the final answer
+
+**Tools** are workspace-aware. Each tool resolves relative paths against the user's chosen project directory:
+
+```
+createTools(workdir) → [read_file, write_file, edit_file, search_code, run_command]
+```
+
+### Streaming Protocol
+
+The API endpoint emits structured SSE events, not raw text:
+
+```
+data: {"type":"start","workdir":"/Users/me/project"}
+data: {"type":"tool_call","id":"tc-1","name":"read_file","arguments":{"path":"src/index.ts"}}
+data: {"type":"tool_result","id":"tc-1","result":"[src/index.ts] L1-L50 / 200 lines\n..."}
+data: {"type":"tool_call","id":"tc-2","name":"write_file","arguments":{...}}
+data: {"type":"tool_result","id":"tc-2","result":"✅ 文件已创建: report.md\n..."}
+data: {"type":"text","content":"Found 5 TODOs, report written to report.md"}
+data: {"type":"done"}
+```
+
+The frontend parses these events in real-time — tool calls appear as live cards, update from ⏳ running to ✓ completed as results arrive, and the final text streams in via markdown renderer.
+
+### Data Flow
+
+```
+Browser                          Next.js API Route                  LLM
+──────                          ──────────────────                  ───
+User types message ──────────►  POST /api/chat
+                                │
+                                ├─ createTools(projectDir)
+                                ├─ new PiAgent(config)
+                                ├─ agent.on(callback) ────► emit SSE events ──► Browser renders
+                                └─ agent.run(task)
+                                      │
+                                      ├─ callLLM() ──────────────────────────► POST /chat/completions
+                                      │                                               │
+                                      │◄────────────────────────────────────── tool_calls or text
+                                      │
+                                      ├─ execute tools (read/write/search/exec)
+                                      │
+                                      └─ loop until answer or maxSteps
+```
+
 ## Project Structure
 
 ```
