@@ -10,6 +10,8 @@ interface ChatInputProps {
   selectedModel: string;
   apiKey: string;
   onApiKeyChange: (key: string) => void;
+  baseUrl: string;
+  onBaseUrlChange: (url: string) => void;
   workdir: string;
   onWorkdirChange: (dir: string) => void;
   disabled: boolean;
@@ -25,13 +27,40 @@ interface AttachedFile {
 
 export function ChatInput({
   onSend, onModelChange, selectedModel, apiKey, onApiKeyChange,
-  workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000,
+  baseUrl, onBaseUrlChange, workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [files, setFiles] = useState<AttachedFile[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean; endpoint: string; status: number; contentType: string;
+    responsePreview: string; duration: number; diagnosis: string[];
+  } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl, apiKey, model: selectedModel }),
+      });
+      const data = await res.json();
+      setTestResult(data);
+    } catch (e: any) {
+      setTestResult({
+        success: false, endpoint: '', status: 0, contentType: '',
+        responsePreview: `请求失败: ${e.message}`, duration: 0,
+        diagnosis: ['前端请求 /api/test-connection 失败'],
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -99,13 +128,13 @@ export function ChatInput({
         {/* Settings bar */}
         {showSettings && (
           <div className="mb-3 p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 animate-fade-in-up">
-            <div className="flex gap-3 items-center flex-wrap">
+            <div className="grid grid-cols-2 gap-2.5">
               <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 模型
                 <select
                   value={selectedModel}
                   onChange={(e) => onModelChange(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500/50 transition-colors flex-1 min-w-0"
                 >
                   {MODELS.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
@@ -119,14 +148,30 @@ export function ChatInput({
                   value={apiKey}
                   onChange={(e) => onApiKeyChange(e.target.value)}
                   placeholder="sk-..."
-                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 w-40 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                 />
               </label>
-            </div>
-            <div className="flex gap-2 items-center mt-2.5">
-              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2 flex-1">
+              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+                API 地址
+                <input
+                  type="text"
+                  value={baseUrl}
+                  onChange={(e) => onBaseUrlChange(e.target.value)}
+                  placeholder="https://api.openai.com/v1"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={testing || !baseUrl}
+                  className="text-[11px] px-2 py-1 rounded-md border border-gray-300 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors flex-shrink-0"
+                >
+                  {testing ? '测试中...' : '测试连接'}
+                </button>
+              </label>
+              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 项目
-                <div className="flex gap-1.5 flex-1">
+                <div className="flex gap-1.5 flex-1 min-w-0">
                   <input
                     type="text"
                     value={workdir}
@@ -138,6 +183,36 @@ export function ChatInput({
                 </div>
               </label>
             </div>
+            {testResult && (
+              <div className={`mt-2.5 p-2.5 rounded-lg text-[11px] leading-relaxed ${
+                testResult.success
+                  ? 'bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20'
+                  : 'bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20'
+              }`}>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className={testResult.success ? 'text-emerald-600' : 'text-red-500'}>
+                    {testResult.success ? '✅' : '❌'}
+                  </span>
+                  <span className={`font-medium ${testResult.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
+                    {testResult.success ? '连接成功' : '连接失败'}
+                  </span>
+                  <span className="text-gray-400 dark:text-zinc-500 ml-auto">{testResult.duration}ms</span>
+                </div>
+                <div className="text-gray-500 dark:text-zinc-400 font-mono text-[10px] break-all mb-1.5">
+                  {testResult.endpoint} → HTTP {testResult.status} ({testResult.contentType || '无'})
+                </div>
+                {testResult.diagnosis.length > 0 && (
+                  <ul className="space-y-0.5">
+                    {testResult.diagnosis.map((d, i) => (
+                      <li key={i} className="text-gray-500 dark:text-zinc-400 flex gap-1">
+                        <span className="text-gray-300 dark:text-zinc-600 flex-shrink-0">{i + 1}.</span>
+                        <span>{d}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -215,6 +290,15 @@ export function ChatInput({
             >
               {selectedModelInfo?.name || selectedModel}
             </button>
+            {baseUrl && (
+              <span
+                onClick={() => setShowSettings(!showSettings)}
+                className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 font-medium cursor-pointer flex-shrink-0 max-w-[120px] truncate"
+                title={`代理: ${baseUrl}`}
+              >
+                🔗 {extractDomain(baseUrl)}
+              </span>
+            )}
 
             <button
               onClick={handleSubmit}
@@ -242,4 +326,12 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url.split('/')[0] || url;
+  }
 }

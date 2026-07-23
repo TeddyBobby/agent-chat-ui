@@ -172,6 +172,18 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
+                components={{
+                  a: ({ href, children }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-500 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                    >
+                      {children}
+                    </a>
+                  ),
+                }}
               >
                 {cleanContent}
               </ReactMarkdown>

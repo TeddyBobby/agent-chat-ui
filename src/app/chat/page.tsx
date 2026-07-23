@@ -21,17 +21,17 @@ import { createAgentStream } from '@/lib/stream/engine';
 
 const SETTINGS_KEY = 'agent-chat-ui-settings';
 
-function loadSettings(): { model: string; apiKey: string } {
-  if (typeof window === 'undefined') return { model: MODELS[0].id, apiKey: '' };
+function loadSettings(): { model: string; apiKey: string; baseUrl: string } {
+  if (typeof window === 'undefined') return { model: MODELS[0].id, apiKey: '', baseUrl: '' };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? JSON.parse(raw) : { model: MODELS[0].id, apiKey: '' };
+    return raw ? JSON.parse(raw) : { model: MODELS[0].id, apiKey: '', baseUrl: '' };
   } catch {
-    return { model: MODELS[0].id, apiKey: '' };
+    return { model: MODELS[0].id, apiKey: '', baseUrl: '' };
   }
 }
 
-function saveSettings(settings: { model: string; apiKey: string }) {
+function saveSettings(settings: { model: string; apiKey: string; baseUrl: string }) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
@@ -45,6 +45,7 @@ export default function Home() {
   const isActiveStreaming = runningConvId === activeId;
   const [model, setModel] = useState(MODELS[0].id);
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const [tick, setTick] = useState(0);
   const [showPicker, setShowPicker] = useState(false);
@@ -70,12 +71,13 @@ export default function Home() {
     const s = loadSettings();
     setModel(s.model);
     setApiKey(s.apiKey);
+    setBaseUrl(s.baseUrl || '');
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (hydrated) saveSettings({ model, apiKey });
-  }, [model, apiKey, hydrated]);
+    if (hydrated) saveSettings({ model, apiKey, baseUrl });
+  }, [model, apiKey, baseUrl, hydrated]);
 
   const activeConv = conversations.find((c) => c.id === activeId) || null;
 
@@ -161,7 +163,7 @@ export default function Home() {
       .map((m) => ({ role: m.role, content: m.content }));
 
     const modelInfo = MODELS.find((m) => m.id === model);
-    const baseUrl = modelInfo?.baseUrl;
+    const effectiveBaseUrl = baseUrl || modelInfo?.baseUrl;
 
     // 如果当前会话已有运行中的 stream，先停掉旧的
     const existing = streamRef.current.get(convId);
@@ -179,7 +181,7 @@ export default function Home() {
       messages,
       model,
       apiKey,
-      baseUrl,
+      baseUrl: effectiveBaseUrl,
       workdir: activeConv?.workdir,
       contextLimit: modelInfo?.contextLimit,
     }).finally(() => {
@@ -223,6 +225,8 @@ export default function Home() {
           selectedModel={model}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
+          baseUrl={baseUrl}
+          onBaseUrlChange={setBaseUrl}
           workdir={activeConv?.workdir || ''}
           onWorkdirChange={handleWorkdirChange}
           disabled={!!runningConvId && runningConvId === activeId}

@@ -2,7 +2,7 @@
  *  core.ts — PiAgent 框架核心（原生 function calling 版）
  *
  *  不再依赖文本解析，用 OpenAI 原生 tool_calls 机制。
- *  DeepSeek / Ollama / OpenAI 通用。
+ *  DeepSeek / Ollama 通用。
  */
 
 // ==========================================================
@@ -253,7 +253,13 @@ export class PiAgent {
         const safeKey = this.config.apiKey.replace(/[^\x00-\x7F]/g, "");
         hdrs.set("Authorization", `Bearer ${safeKey}`);
       }
-      res = await fetch(`${this.config.baseURL}/chat/completions`, {
+      // 智能路径：如果 baseURL 已包含 /responses 或 /chat/completions，直接用
+      // 否则默认追加 /chat/completions（OpenAI 兼容）
+      const hasExplicitPath = /\/(responses|chat\/completions)$/.test(this.config.baseURL || "");
+      const endpoint = hasExplicitPath
+        ? this.config.baseURL!
+        : `${this.config.baseURL}/chat/completions`;
+      res = await fetch(endpoint, {
         method: "POST",
         headers: hdrs,
         body: new Uint8Array(bodyBytes),
@@ -271,6 +277,13 @@ export class PiAgent {
         if (e.message.startsWith("LLM API")) throw e;
         throw new Error(`[step3 error-text] ${e.message}`);
       }
+    }
+
+    // Guard: 非 SSE 响应（代理返回 HTML 登录页等）要明确报错
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("text/event-stream")) {
+      const preview = (await res.text()).slice(0, 200);
+      throw new Error(`非流式响应 (${ct}): ${preview}`);
     }
 
     // Step 3: read SSE stream

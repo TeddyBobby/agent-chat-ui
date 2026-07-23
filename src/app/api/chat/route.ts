@@ -3,6 +3,10 @@
  *
  *  接收前端消息 + workdir → 创建 PiAgent → 执行 ReAct 循环 →
  *  SSE 流式输出结构化事件到浏览器
+ *
+ *  支持两种模式：
+ *  1. 代理模式：前端传了 baseUrl → 所有模型都走这个代理地址
+ *  2. 直连模式：不传 baseUrl → 走模型自带 baseUrl 或环境变量默认值
  */
 
 import { NextRequest } from "next/server";
@@ -13,13 +17,35 @@ import { AgentEvent } from "@/lib/types";
 export async function POST(req: NextRequest) {
   const { messages, model, apiKey, baseUrl, workdir, contextLimit } = await req.json();
 
-  const isDeepSeek = model?.startsWith("deepseek");
-  const defaultBase = isDeepSeek
-    ? process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1"
-    : process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+  // ═══ 智能 URL 解析 ═══
+  // 优先级：用户自定义 > 环境变量 > 直连默认
+  let apiBase: string;
+  if (baseUrl) {
+    // 代理模式：直接用用户填的地址
+    apiBase = baseUrl;
+  } else {
+    // 直连模式：按 provider 区分
+    const isDeepSeek = model?.startsWith("deepseek");
+    const isOllama = model?.includes(":");
+    if (isOllama) {
+      apiBase = process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1";
+    } else if (isDeepSeek) {
+      apiBase = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1";
+    } else {
+      apiBase = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+    }
+  }
 
-  const apiBase = baseUrl || defaultBase;
-  const key = apiKey || (isDeepSeek ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY) || "";
+  // ═══ API Key ═══
+  // 优先级：用户自定义 > 环境变量
+  let key: string;
+  if (apiKey) {
+    key = apiKey;
+  } else {
+    const isDeepSeek = model?.startsWith("deepseek");
+    key = (isDeepSeek ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY) || "";
+  }
+
   const isLocal = apiBase.includes("localhost") || apiBase.includes("127.0.0.1");
 
   if (!key && !isLocal) {
@@ -29,13 +55,14 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // workdir：~ 展开 + 自动创建
+  // ═══ workdir 处理 ═══
   const rawDir = (workdir || process.cwd()).replace(/^~/, process.env.HOME || "/Users");
   const fs = await import("node:fs");
   const pathMod = await import("node:path");
   const projectDir = pathMod.resolve(rawDir);
   if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
 
+  // ═══ 消息处理 ═══
   const userMessages = messages.filter((m: any) => m.role === "user");
   if (userMessages.length === 0) {
     return new Response(JSON.stringify({ error: "没有用户消息" }), {
@@ -52,6 +79,8 @@ export async function POST(req: NextRequest) {
     .filter((m: any) => m.role === "user" || m.role === "assistant")
     .map((m: any) => ({ role: m.role, content: m.content }));
 
+  // ═══ 创建 Agent ═══
+  console.log(`[PiAgent] → ${apiBase} model=${model} workdir=${projectDir}`);
   const agent = new PiAgent({
     apiKey: key,
     model: model || "gpt-4o",
@@ -64,7 +93,7 @@ export async function POST(req: NextRequest) {
 
   for (const tool of createTools(projectDir)) agent.use(tool);
 
-  // Web ReadableStream — 浏览器 fetch 的 response.body.getReader() 需要这个
+  // ═══ SSE 流式输出 ═══
   const encoder = new TextEncoder();
   let done = false;
   const stream = new ReadableStream({
@@ -86,7 +115,6 @@ export async function POST(req: NextRequest) {
             case "thought":
               break;
             case "text_chunk":
-              // 流式文本块 → 立即发送到前端逐字渲染
               emit({ type: "text", content: stepEvent.content });
               break;
             case "action":
@@ -122,7 +150,6 @@ export async function POST(req: NextRequest) {
         });
     },
     cancel() {
-      // 客户端断开，阻止后续 emit
       done = true;
     },
   });
