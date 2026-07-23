@@ -85,7 +85,7 @@ export class PiAgent {
   constructor(config: AgentConfig) {
     this.config = {
       baseURL: "https://api.openai.com/v1",
-      maxSteps: 15,
+      maxSteps: 25,
       systemPrompt: "",
       ...config,
     };

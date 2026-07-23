@@ -1,15 +1,14 @@
 /**
- *  POST /api/chat — PiAgent 驱动的 Agent 路由
+ *  POST /api/chat — Agent 路由
  *
- *  接收前端消息 + workdir → 创建 PiAgent（带 coding 工具）→
- *  执行 ReAct 循环 → SSE 流式输出结构化事件
+ *  接收前端消息 + workdir → 创建 PiAgent → 执行 ReAct 循环 →
+ *  SSE 流式输出结构化事件到浏览器
  */
 
 import { NextRequest } from "next/server";
 import { PiAgent } from "@/lib/agent/core";
 import { createTools } from "@/lib/agent/tools";
 import { AgentEvent } from "@/lib/types";
-import { Readable } from "node:stream";
 
 export async function POST(req: NextRequest) {
   const { messages, model, apiKey, baseUrl, workdir } = await req.json();
@@ -57,59 +56,65 @@ export async function POST(req: NextRequest) {
     apiKey: key,
     model: model || "gpt-4o",
     baseURL: apiBase,
-    maxSteps: 12,
+    maxSteps: 25,
     systemPrompt: `你是一个 coding agent，当前工作目录是 ${projectDir}。所有文件路径都相对于这个目录。`,
   });
 
   for (const tool of createTools(projectDir)) agent.use(tool);
 
-  // 使用 Node.js 原生 Readable stream，避免 Web ReadableStream 的 ByteString 问题
-  const nodeStream = new Readable({ read() {} });
+  // Web ReadableStream — 浏览器 fetch 的 response.body.getReader() 需要这个
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      function emit(event: AgentEvent) {
+        const line = `data: ${JSON.stringify(event)}\n\n`;
+        controller.enqueue(encoder.encode(line));
+      }
 
-  function emit(event: AgentEvent) {
-    const line = `data: ${JSON.stringify(event)}\n\n`;
-    nodeStream.push(line, "utf-8");
-  }
+      emit({ type: "start", workdir: projectDir });
 
-  emit({ type: "start", workdir: projectDir });
+      let lastToolCallId = "";
 
-  let lastToolCallId = "";
+      agent.on((stepEvent) => {
+        try {
+          switch (stepEvent.type) {
+            case "thought":
+              break;
+            case "action":
+              lastToolCallId = `tc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+              emit({
+                type: "tool_call",
+                id: lastToolCallId,
+                name: stepEvent.toolName || "unknown",
+                arguments: stepEvent.toolArgs || {},
+              });
+              break;
+            case "observation":
+              emit({ type: "tool_result", id: lastToolCallId, result: stepEvent.content });
+              break;
+            case "answer":
+              emit({ type: "text", content: stepEvent.content });
+              break;
+          }
+        } catch {
+          // emit 失败不影响 agent 循环
+        }
+      });
 
-  agent.on((stepEvent) => {
-    switch (stepEvent.type) {
-      case "thought":
-        break;
-      case "action":
-        lastToolCallId = `tc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        emit({
-          type: "tool_call",
-          id: lastToolCallId,
-          name: stepEvent.toolName || "unknown",
-          arguments: stepEvent.toolArgs || {},
+      agent
+        .run(task, history.length > 0 ? history : undefined)
+        .catch((e: any) => {
+          console.error("[PiAgent]", e.stack);
+          try { emit({ type: "error", message: `Agent 异常: ${e.message}` }); } catch {}
+        })
+        .finally(() => {
+          try { emit({ type: "done" }); } catch {}
+          try { controller.close(); } catch {}
         });
-        break;
-      case "observation":
-        emit({ type: "tool_result", id: lastToolCallId, result: stepEvent.content });
-        break;
-      case "answer":
-        emit({ type: "text", content: stepEvent.content });
-        break;
-    }
+    },
   });
 
-  // 异步执行 agent，完成后关闭流
-  agent
-    .run(task, history.length > 0 ? history : undefined)
-    .catch((e: any) => {
-      console.error("[PiAgent]", e.stack);
-      emit({ type: "error", message: `Agent 异常: ${e.message}` });
-    })
-    .finally(() => {
-      emit({ type: "done" });
-      nodeStream.push(null); // 关闭流
-    });
-
-  return new Response(nodeStream as any, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache",

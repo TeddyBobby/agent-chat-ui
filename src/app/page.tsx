@@ -39,14 +39,24 @@ export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [workdir, setWorkdir] = useState('');
   const [hydrated, setHydrated] = useState(false);
+  const [tick, setTick] = useState(0); // 强制重渲染计数器
 
   // 客户端挂载后从 localStorage 恢复状态
   useEffect(() => {
-    setConversations(getConversations());
+    const convs = getConversations();
+    setConversations(convs);
+    // 默认选中最近的对话
+    if (convs.length > 0 && !activeId) {
+      setActiveId(convs[0].id);
+      setModel(convs[0].model);
+      setWorkdir(convs[0].workdir || '');
+    }
     const s = loadSettings();
-    setModel(s.model);
+    if (convs.length === 0) {
+      setModel(s.model);
+      setWorkdir(s.workdir);
+    }
     setApiKey(s.apiKey);
-    setWorkdir(s.workdir);
     setHydrated(true);
   }, []);
 
@@ -190,6 +200,7 @@ export default function Home() {
 
   /** 处理单个 SSE 事件 */
   function handleAgentEvent(convId: string, msgId: string, event: AgentEvent) {
+    setTick(t => t + 1); // 强制重渲染
     switch (event.type) {
       case 'start':
         // workdir 确认

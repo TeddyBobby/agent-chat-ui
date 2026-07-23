@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -9,6 +9,7 @@ import { ToolCallCard } from './tool-call-card';
 
 interface MessageBubbleProps {
   message: Message;
+  streaming?: boolean;
 }
 
 interface ParsedFile {
@@ -59,11 +60,16 @@ function getFileMeta(name: string) {
   };
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
-  const [showTools, setShowTools] = useState(false);
+  const [showTools, setShowTools] = useState(!!streaming);
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
+
+  // streaming 时自动展开工具
+  useEffect(() => {
+    if (streaming) setShowTools(true);
+  }, [streaming]);
 
   const { files, cleanContent } = useMemo(
     () => parseFiles(message.content),
@@ -97,9 +103,27 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-medium text-zinc-500 mb-1 tracking-wide uppercase">
+          <div className="text-[11px] font-medium text-zinc-500 mb-1 tracking-wide">
             {isUser ? '你' : '{{Pi}}Agent'}
           </div>
+
+          {/* Agent status */}
+          {!isUser && streaming && totalTools > 0 && (
+            <div className="mb-2 flex items-center gap-2">
+              <span className="w-3 h-3 border-2 border-indigo-400/60 border-t-indigo-400 rounded-full animate-spin flex-shrink-0" />
+              <span className="text-[12px] text-indigo-400/80 font-medium">
+                {(() => {
+                  const running = message.toolCalls?.find(tc => tc.status === 'running');
+                  if (running) {
+                    const label = {read_file:'Reading',write_file:'Writing',edit_file:'Editing',search_code:'Searching',run_command:'Running'}[running.name] || running.name;
+                    const arg = running.arguments?.path?.toString().split('/').pop() || running.arguments?.command?.toString().slice(0,30) || '';
+                    return `${label} ${arg}`;
+                  }
+                  return `Executing ${completedTools}/${totalTools} tools`;
+                })()}
+              </span>
+            </div>
+          )}
 
           {/* File attachments */}
           {files.length > 0 && (
@@ -161,7 +185,23 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </ReactMarkdown>
             </div>
           ) : !files.length && totalTools > 0 && completedTools === 0 ? (
-            <div className="text-[13px] text-zinc-500 italic">Working...</div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+              </div>
+              <span className="text-[12px] text-zinc-500">Working...</span>
+            </div>
+          ) : streaming && !hasMarkdown && totalTools === 0 ? (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+              </div>
+              <span className="text-[12px] text-zinc-500">Thinking...</span>
+            </div>
           ) : null}
 
           {/* Tool calls — collapsed summary */}

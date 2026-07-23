@@ -1,6 +1,5 @@
 import { Conversation, Message, ToolCall } from './types';
 
-// Simple in-memory store with localStorage persistence
 const STORAGE_KEY = 'agent-chat-ui-conversations';
 
 function loadConversations(): Conversation[] {
@@ -13,9 +12,9 @@ function loadConversations(): Conversation[] {
   }
 }
 
-function saveConversations(conversations: Conversation[]): void {
+function saveConversations(convs: Conversation[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
 }
 
 let conversations = loadConversations();
@@ -49,50 +48,56 @@ export function deleteConversation(id: string): void {
 }
 
 export function addMessage(convId: string, message: Message): void {
-  const conv = conversations.find((c) => c.id === convId);
-  if (!conv) return;
-  conv.messages.push(message);
-  conv.updatedAt = Date.now();
-  // Auto-title from first user message
-  if (message.role === 'user' && conv.messages.filter((m) => m.role === 'user').length === 1) {
-    conv.title = message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '');
-  }
+  const idx = conversations.findIndex((c) => c.id === convId);
+  if (idx === -1) return;
+  const conv = conversations[idx];
+  const newMessages = [...conv.messages, message];
+  const title = message.role === 'user' && newMessages.filter((m) => m.role === 'user').length === 1
+    ? message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
+    : conv.title;
+  conversations[idx] = { ...conv, messages: newMessages, title, updatedAt: Date.now() };
   saveConversations(conversations);
 }
 
 export function updateMessage(convId: string, msgId: string, updates: Partial<Message>): void {
-  const conv = conversations.find((c) => c.id === convId);
-  if (!conv) return;
-  const msg = conv.messages.find((m) => m.id === msgId);
-  if (!msg) return;
-  Object.assign(msg, updates);
-  conv.updatedAt = Date.now();
+  const convIdx = conversations.findIndex((c) => c.id === convId);
+  if (convIdx === -1) return;
+  const conv = conversations[convIdx];
+  const msgIdx = conv.messages.findIndex((m) => m.id === msgId);
+  if (msgIdx === -1) return;
+  const newMessages = [...conv.messages];
+  newMessages[msgIdx] = { ...newMessages[msgIdx], ...updates };
+  conversations[convIdx] = { ...conv, messages: newMessages, updatedAt: Date.now() };
   saveConversations(conversations);
 }
 
 export function updateToolCall(
-  convId: string,
-  msgId: string,
-  toolCallId: string,
-  updates: Partial<ToolCall>
+  convId: string, msgId: string, toolCallId: string, updates: Partial<ToolCall>
 ): void {
-  const conv = conversations.find((c) => c.id === convId);
-  if (!conv) return;
+  const convIdx = conversations.findIndex((c) => c.id === convId);
+  if (convIdx === -1) return;
+  const conv = conversations[convIdx];
   const msg = conv.messages.find((m) => m.id === msgId);
   if (!msg?.toolCalls) return;
-  const tc = msg.toolCalls.find((t) => t.id === toolCallId);
-  if (!tc) return;
-  Object.assign(tc, updates);
-  conv.updatedAt = Date.now();
+  const tcIdx = msg.toolCalls.findIndex((t) => t.id === toolCallId);
+  if (tcIdx === -1) return;
+  const newToolCalls = [...msg.toolCalls];
+  newToolCalls[tcIdx] = { ...newToolCalls[tcIdx], ...updates };
+  const msgIdx = conv.messages.findIndex((m) => m.id === msgId);
+  const newMessages = [...conv.messages];
+  newMessages[msgIdx] = { ...newMessages[msgIdx], toolCalls: newToolCalls };
+  conversations[convIdx] = { ...conv, messages: newMessages, updatedAt: Date.now() };
   saveConversations(conversations);
 }
 
 export function appendToMessage(convId: string, msgId: string, chunk: string): void {
-  const conv = conversations.find((c) => c.id === convId);
-  if (!conv) return;
-  const msg = conv.messages.find((m) => m.id === msgId);
-  if (!msg) return;
-  msg.content += chunk;
-  conv.updatedAt = Date.now();
+  const convIdx = conversations.findIndex((c) => c.id === convId);
+  if (convIdx === -1) return;
+  const conv = conversations[convIdx];
+  const msgIdx = conv.messages.findIndex((m) => m.id === msgId);
+  if (msgIdx === -1) return;
+  const newMessages = [...conv.messages];
+  newMessages[msgIdx] = { ...newMessages[msgIdx], content: newMessages[msgIdx].content + chunk };
+  conversations[convIdx] = { ...conv, messages: newMessages, updatedAt: Date.now() };
   saveConversations(conversations);
 }
