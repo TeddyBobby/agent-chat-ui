@@ -181,6 +181,7 @@ export default function Home() {
       apiKey,
       baseUrl,
       workdir: activeConv?.workdir,
+      contextLimit: modelInfo?.contextLimit,
     }).finally(() => {
       setRunningConvId(null);
     });

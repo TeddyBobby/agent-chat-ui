@@ -11,7 +11,7 @@ import { createTools } from "@/lib/agent/tools";
 import { AgentEvent } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
-  const { messages, model, apiKey, baseUrl, workdir } = await req.json();
+  const { messages, model, apiKey, baseUrl, workdir, contextLimit } = await req.json();
 
   const isDeepSeek = model?.startsWith("deepseek");
   const defaultBase = isDeepSeek
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     baseURL: apiBase,
     maxSteps: 60,
     abortSignal: req.signal,
+    contextLimit: contextLimit || 128000,
     systemPrompt: `你是一个 coding agent，当前工作目录是 ${projectDir}。所有文件路径都相对于这个目录。`,
   });
 

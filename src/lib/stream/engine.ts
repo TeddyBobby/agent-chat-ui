@@ -225,6 +225,7 @@ export function createAgentStream(callbacks: StreamCallbacks) {
       apiKey: string;
       baseUrl?: string;
       workdir?: string;
+      contextLimit?: number;
     }) {
       const requestId = dedup.newRequest();
       abortController = new AbortController();
@@ -242,6 +243,7 @@ export function createAgentStream(callbacks: StreamCallbacks) {
             apiKey: params.apiKey || '',
             baseUrl: params.baseUrl || undefined,
             workdir: params.workdir || undefined,
+            contextLimit: params.contextLimit,
           },
           abortController.signal
         );

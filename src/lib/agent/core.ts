@@ -29,6 +29,7 @@ export interface AgentConfig {
   maxSteps?: number;
   systemPrompt?: string;
   abortSignal?: AbortSignal;
+  contextLimit?: number;
 }
 
 interface Message {
@@ -91,6 +92,7 @@ export class PiAgent {
       systemPrompt: "",
       ...config,
       abortSignal: config.abortSignal ?? undefined,
+      contextLimit: config.contextLimit ?? 128000,
     };
   }
 
@@ -109,7 +111,7 @@ export class PiAgent {
     history?: Array<{ role: "user" | "assistant"; content: string }>
   ): Promise<string> {
     const toolList = Array.from(this.tools.values());
-    const messages: Message[] = [
+    let messages: Message[] = [
       { role: "system", content: buildPrompt(toolList, this.config.systemPrompt) },
     ];
 
@@ -136,6 +138,14 @@ export class PiAgent {
     }));
 
     for (let step = 0; step < this.config.maxSteps; step++) {
+      // 上下文压缩：超过 75% 窗口时压缩中间轮次
+      if (this.config.contextLimit && step > 0 && step % 5 === 0) {
+        const tokens = this._estimateTokens(messages);
+        if (tokens > this.config.contextLimit * 0.75) {
+          messages = await this._compressContext(messages);
+        }
+      }
+
       // 客户端断开连接时中止
       if (this.config.abortSignal?.aborted) {
         this.emit({ type: "answer", content: "已取消（客户端断开）" });
@@ -354,5 +364,104 @@ export class PiAgent {
 
   private emit(event: StepEvent) {
     this.onStep?.(event);
+  }
+
+  /** 估算消息列表的 token 数 */
+  private _estimateTokens(messages: Message[]): number {
+    let chars = 0;
+    for (const m of messages) {
+      chars += m.content.length + 4; // +4 role 标记开销
+      if (m.tool_calls) {
+        for (const tc of m.tool_calls) {
+          chars += JSON.stringify(tc.function.arguments || "").length;
+        }
+      }
+    }
+    return Math.ceil(chars / 2.5);
+  }
+
+  /** 压缩上下文：用 LLM 摘要中间轮次，保护 system + 尾部 */
+  private async _compressContext(messages: Message[]): Promise<Message[]> {
+    const contextLimit = this.config.contextLimit!;
+    const threshold = Math.floor(contextLimit * 0.75);
+    const tailBudget = Math.floor(contextLimit * 0.3); // 30% 留给尾部
+    const summaryBudget = Math.floor(contextLimit * 0.1); // 10% 用于摘要本身
+
+    // 找到 system prompt
+    const sysIdx = messages.findIndex(m => m.role === "system");
+    const systemTokens = sysIdx >= 0 ? this._estimateTokens([messages[sysIdx]]) : 0;
+
+    // 从后往前收集尾部消息（保留最新上下文）
+    const tail: Message[] = [];
+    let tailTokens = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const cost = this._estimateTokens([messages[i]]);
+      if (tailTokens + cost > tailBudget) break;
+      tail.unshift(messages[i]);
+      tailTokens += cost;
+    }
+    const tailStart = messages.length - tail.length;
+
+    // 中间部分 = system 之后、尾部之前
+    const middle = messages.slice(sysIdx + 1, tailStart);
+    if (middle.length === 0) return messages;
+
+    // 用 LLM 摘要中间部分
+    const summaryPrompt =
+      `Summarize the following conversation into a concise context summary. ` +
+      `Keep all important facts, decisions, file changes, and error fixes. ` +
+      `Format as bullet points. Be brief — this is for context compression, not a full report.\\n\\n` +
+      middle.map(m => `[${m.role}] ${m.content.slice(0, 2000)}`).join("\\n\\n");
+
+    try {
+      const body = {
+        model: this.config.model,
+        messages: [{ role: "user", content: summaryPrompt }],
+        temperature: 0,
+        max_tokens: summaryBudget,
+      };
+
+      const hdrs = new Headers();
+      hdrs.set("Content-Type", "application/json");
+      if (this.config.apiKey) {
+        hdrs.set("Authorization", `Bearer ${this.config.apiKey.replace(/[^\\x00-\\x7F]/g, "")}`);
+      }
+
+      const res = await fetch(`${this.config.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: hdrs,
+        body: new Uint8Array(Buffer.from(JSON.stringify(body), "utf-8")),
+        signal: this.config.abortSignal,
+      });
+
+      if (!res.ok) {
+        // 压缩失败，回退为简单的旧消息截断
+        return [messages[sysIdx], ...tail];
+      }
+
+      const data = await res.json();
+      const summary = data.choices?.[0]?.message?.content || "";
+
+      if (!summary) return messages;
+
+      // 构建新消息列表: system + summary + tail
+      const result: Message[] = [];
+      if (sysIdx >= 0) result.push(messages[sysIdx]);
+      result.push({
+        role: "user",
+        content:
+          `[上下文摘要 — 以下是之前对话的关键信息，不是当前指令]\\n${summary}\\n\\n` +
+          `--- 继续对话 ---`,
+      });
+      result.push(...tail);
+
+      return result;
+    } catch {
+      // 压缩失败，回退：丢弃中间，只保留 system + tail
+      const result: Message[] = [];
+      if (sysIdx >= 0) result.push(messages[sysIdx]);
+      result.push(...tail);
+      return result;
+    }
   }
 }
