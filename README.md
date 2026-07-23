@@ -2,6 +2,8 @@
 
 对话式 AI 编程助手。直接在项目中读代码、写文件、执行命令，实时观看工具执行过程。
 
+**在线体验** → [agent-chat-ui-ten.vercel.app/chat](https://agent-chat-ui-ten.vercel.app/chat)
+
 Next.js 16 · TypeScript · Tailwind CSS
 
 ## 快速开始
@@ -35,9 +37,6 @@ npm run dev
 |------|--------|
 | DeepSeek V4 Pro（默认） | 1M |
 | DeepSeek V4 Flash | 1M |
-| GPT-5.6 / GPT-5.4 / GPT-4o | 128K–272K |
-| Gemini 3.1 Pro / 2.5 Pro | 1M |
-| Claude Sonnet 5 | 200K |
 | Gemma 4 12B / 8B (本地) | 8K–32K |
 
 任意 OpenAI 兼容 API 即插即用。
@@ -53,6 +52,15 @@ npm run dev
 - **亮/暗主题** — 一键切换
 - **设置持久化** — 模型、API Key 自动保存
 
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [架构总览](docs/ARCHITECTURE.md) | 项目整体结构、目录说明 |
+| [Agent 架构](docs/agent-architecture.md) | PiAgent ReAct 循环、工具系统、上下文压缩 |
+| [流式引擎](docs/streaming-engine.md) | 五层渲染架构、SSE 协议、连接管理 |
+| [上下文管理](docs/context-management.md) | Token 估算、摘要压缩算法、窗口策略 |
+
 ## 架构
 
 ```
@@ -60,10 +68,10 @@ src/
 ├── app/api/chat/route.ts    # SSE Agent 端点
 ├── app/chat/page.tsx        # 聊天主页面
 ├── lib/agent/
-│   ├── core.ts              # PiAgent 框架核心 → [详细](docs/agent-architecture.md)
+│   ├── core.ts              # PiAgent 框架核心
 │   └── tools.ts             # 5 个内置工具
 ├── lib/stream/
-│   └── engine.ts            # 流式渲染引擎 → [详细](docs/streaming-engine.md)
+│   └── engine.ts            # 流式渲染引擎（5 层）
 ├── lib/store.ts             # localStorage 持久化
 ├── lib/types.ts             # 类型 + 模型注册
 ├── components/chat/         # UI 组件
@@ -77,9 +85,6 @@ src/
 | 变量 | 说明 |
 |------|------|
 | `DEEPSEEK_API_KEY` | DeepSeek API Key |
-| `OPENAI_API_KEY` | OpenAI API Key |
-| `DEEPSEEK_BASE_URL` | DeepSeek 地址 |
-| `OPENAI_BASE_URL` | OpenAI 地址 |
 
 ## 技术栈
 
