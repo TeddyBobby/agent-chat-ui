@@ -62,11 +62,6 @@ function estimateTokens(messages: Message[]): number {
   return Math.ceil(chars / 2.5);
 }
 
-function fmtTokens(tokens: number): string {
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
-  return String(tokens);
-}
-
 let conversations = loadConversations();
 
 export function getConversations(filter?: 'active' | 'archived'): Conversation[] {

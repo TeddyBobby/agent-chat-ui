@@ -367,7 +367,7 @@ export class PiAgent {
         {
           message: {
             role: "assistant",
-            content: textContent || null,
+            content: textContent || "",
             ...(finalToolCalls ? { tool_calls: finalToolCalls } : {}),
           },
         },
@@ -383,7 +383,7 @@ export class PiAgent {
   private _estimateTokens(messages: Message[]): number {
     let chars = 0;
     for (const m of messages) {
-      chars += m.content.length + 4; // +4 role 标记开销
+      chars += (m.content || '').length + 4; // +4 role 标记开销
       if (m.tool_calls) {
         for (const tc of m.tool_calls) {
           chars += JSON.stringify(tc.function.arguments || "").length;
@@ -424,7 +424,7 @@ export class PiAgent {
       `Summarize the following conversation into a concise context summary. ` +
       `Keep all important facts, decisions, file changes, and error fixes. ` +
       `Format as bullet points. Be brief — this is for context compression, not a full report.\\n\\n` +
-      middle.map(m => `[${m.role}] ${m.content.slice(0, 2000)}`).join("\\n\\n");
+      middle.map(m => `[${m.role}] ${(m.content || '').slice(0, 2000)}`).join("\\n\\n");
 
     try {
       const body = {
@@ -440,7 +440,11 @@ export class PiAgent {
         hdrs.set("Authorization", `Bearer ${this.config.apiKey.replace(/[^\\x00-\\x7F]/g, "")}`);
       }
 
-      const res = await fetch(`${this.config.baseURL}/chat/completions`, {
+      const hasExplicitPath = /\/(responses|chat\/completions)$/.test(this.config.baseURL || "");
+      const endpoint = hasExplicitPath
+        ? this.config.baseURL!
+        : `${this.config.baseURL}/chat/completions`;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: hdrs,
         body: new Uint8Array(Buffer.from(JSON.stringify(body), "utf-8")),

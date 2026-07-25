@@ -16,6 +16,7 @@
   "build": {
     "appId": "dev.teddybobby.piagent",
     "productName": "PiAgent",
+    "electronVersion": "43.2.0",
     "files": [
       ".next/**/*",
       "public/**/*",
@@ -38,7 +39,8 @@
     },
     "mac": {
       "target": "dmg",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "identity": null
     },
     "win": {
       "target": "nsis"
