@@ -1,11 +1,114 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Message } from '@/lib/types';
 import { ToolCallCard } from './tool-call-card';
+
+// ── Code block copy ──
+
+function extractLanguage(className?: string): string | null {
+  if (!className) return null;
+  const match = className.match(/language-(\w+)/);
+  return match ? match[1] : null;
+}
+
+function CodeBlockHeader({ language, codeText }: { language: string | null; codeText: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(codeText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers / non-HTTPS
+      const textarea = document.createElement('textarea');
+      textarea.value = codeText;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); } catch {}
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [codeText]);
+
+  return (
+    <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 dark:bg-zinc-800/80 border-b border-gray-200 dark:border-zinc-700/50 rounded-t-[0.625rem]">
+      <span className="text-[10px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+        {language || 'code'}
+      </span>
+      <button
+        onClick={handleCopy}
+        className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 transition-colors"
+      >
+        {copied ? (
+          <>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span className="text-emerald-500">Copied</span>
+          </>
+        ) : (
+          <>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            <span>Copy</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function extractCodeChild(children: React.ReactNode): { lang: string | null; text: string } | null {
+  // Walk the React element tree to find the <code> child with hljs class
+  const walk = (node: React.ReactNode): { lang: string | null; text: string } | null => {
+    if (node == null) return null;
+    if (typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean') {
+      return null;
+    }
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const result = walk(child);
+        if (result) return result;
+      }
+      return null;
+    }
+    // React element
+    const el = node as any;
+    if (el.type === 'code' && el.props?.className?.includes('hljs')) {
+      return {
+        lang: extractLanguage(el.props.className),
+        text: extractTextContent(el.props.children),
+      };
+    }
+    if (el.props?.children) {
+      return walk(el.props.children);
+    }
+    return null;
+  };
+  return walk(children);
+}
+
+function extractTextContent(children: React.ReactNode): string {
+  if (children == null) return '';
+  if (typeof children === 'string') return children;
+  if (typeof children === 'number' || typeof children === 'boolean') return String(children);
+  if (Array.isArray(children)) return children.map(extractTextContent).join('');
+  // React element — drill into children
+  if (typeof children === 'object' && 'props' in (children as any)) {
+    return extractTextContent((children as any).props.children);
+  }
+  return '';
+}
 
 interface MessageBubbleProps {
   message: Message;
@@ -183,6 +286,27 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                       {children}
                     </a>
                   ),
+                  pre: ({ children, ...props }) => {
+                    const codeChild = extractCodeChild(children);
+                    const lang = codeChild?.lang ?? null;
+                    const codeText = codeChild?.text ?? '';
+                    return (
+                      <div className="my-2">
+                        <CodeBlockHeader language={lang} codeText={codeText} />
+                        <pre className="!mt-0 !rounded-t-none" {...props}>
+                          {children}
+                        </pre>
+                      </div>
+                    );
+                  },
+                  code: ({ children, className, ...props }) => {
+                    // Inline code (no language class from rehype-highlight)
+                    if (!className?.includes('hljs')) {
+                      return <code className={className} {...props}>{children}</code>;
+                    }
+                    // Block code — rendered inside <pre>, just return as-is
+                    return <code className={className} {...props}>{children}</code>;
+                  },
                 }}
               >
                 {cleanContent}
