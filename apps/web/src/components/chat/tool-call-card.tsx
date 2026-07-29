@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ToolCall } from '@/lib/types';
 
 interface ToolCallCardProps {
@@ -21,17 +21,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const isDone = toolCall.status === 'completed';
   const isError = toolCall.status === 'error';
   const hasResult = !!(toolCall.result || toolCall.error);
-
-  // 完成后保留 visible 300ms，做视觉过渡
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    if (isRunning) {
-      setVisible(true);
-    } else if (visible) {
-      const t = setTimeout(() => setVisible(false), 400);
-      return () => clearTimeout(t);
-    }
-  }, [isRunning]);
+  const [expanded, setExpanded] = useState(isRunning);
 
   const a = toolCall.args || {};
   const argsPreview = a.path
@@ -43,23 +33,23 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
     : '';
 
   return (
-    <div className={`border rounded-md overflow-hidden text-[12px] transition-all duration-300 ${
+    <div className={`overflow-hidden rounded-md border text-[12px] transition-colors ${
       isRunning
         ? 'border-amber-500/30 bg-amber-50 dark:bg-amber-500/[0.04]'
-        : visible
-        ? 'border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/[0.04]'
         : isError
         ? 'border-red-500/20 bg-red-50 dark:bg-red-500/[0.03]'
         : 'border-gray-200 dark:border-zinc-800/50 bg-gray-50 dark:bg-zinc-900/30'
     }`}>
-      <div className="flex items-center gap-2 px-2.5 py-1.5">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/[0.025] dark:hover:bg-white/[0.025]"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? '收起' : '展开'} ${label} 工具详情`}
+      >
         {/* Status icon */}
         {isRunning ? (
           <span className="w-3 h-3 border-2 border-amber-400/60 border-t-amber-400 rounded-full animate-spin flex-shrink-0" />
-        ) : visible ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 animate-fade-in-up">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
         ) : isDone ? (
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
         ) : (
@@ -68,7 +58,6 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
 
         <span className={`font-semibold tracking-wider uppercase flex-shrink-0 transition-colors duration-300 ${
           isRunning ? 'text-amber-600 dark:text-amber-300'
-          : visible ? 'text-emerald-600 dark:text-emerald-300'
           : 'text-gray-500 dark:text-zinc-400'
         }`}>
           {label}
@@ -80,13 +69,58 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
 
         <span className={`text-[10px] font-medium flex-shrink-0 transition-colors duration-300 ${
           isRunning ? 'text-amber-500 animate-pulse'
-          : visible ? 'text-emerald-500'
           : isDone ? 'text-emerald-500'
           : 'text-red-500'
         }`}>
-          {isRunning ? '···' : visible ? '✓' : isDone ? 'done' : 'error'}
+          {isRunning ? '运行中' : isDone ? 'done' : 'error'}
         </span>
-      </div>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`flex-shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
+        >
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+
+      {expanded && (
+        <div className="space-y-2 border-t border-black/[0.06] px-3 py-2 dark:border-white/[0.06]">
+          <ToolDetail label="参数" value={JSON.stringify(toolCall.args || {}, null, 2)} />
+          {hasResult && (
+            <ToolDetail
+              label={isError ? '错误' : '结果'}
+              value={toolCall.error || toolCall.result || ''}
+              error={isError}
+            />
+          )}
+          {isRunning && !hasResult && (
+            <p className="text-[10px] text-amber-600 dark:text-amber-300">工具正在执行，结果将在完成后显示。</p>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ToolDetail({ label, value, error = false }: { label: string; value: string; error?: boolean }) {
+  return (
+    <section>
+      <p className={`mb-1 text-[9px] font-medium uppercase tracking-wide ${
+        error ? 'text-red-500' : 'text-gray-400 dark:text-zinc-500'
+      }`}>
+        {label}
+      </p>
+      <pre className="!m-0 max-h-56 overflow-auto !rounded-md !border-0 !bg-black/[0.04] p-2 dark:!bg-black/20">
+        <code className={`!bg-transparent !p-0 !text-[10px] !leading-4 ${
+          error ? '!text-red-600 dark:!text-red-300' : '!text-gray-600 dark:!text-zinc-300'
+        }`}>
+          {value || '—'}
+        </code>
+      </pre>
+    </section>
   );
 }

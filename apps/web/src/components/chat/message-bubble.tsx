@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Message } from '@/lib/types';
 import { ToolCallCard } from './tool-call-card';
+import { shouldShowToolCalls } from './tool-call-state';
 import { AgentMark } from './agent-mark';
 
 // ── Code block copy ──
@@ -166,6 +167,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const [showTools, setShowTools] = useState(false);
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
+  const toolsVisible = shouldShowToolCalls(showTools, message.toolCalls);
 
   const { files, cleanContent } = useMemo(
     () => parseFiles(message.content),
@@ -346,7 +348,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 )}
               </button>
 
-              {showTools && (
+              {toolsVisible && (
                 <div className="mt-1.5 space-y-1">
                   {message.toolCalls!.map((tc) => (
                     <ToolCallCard key={tc.id} toolCall={tc} />
