@@ -1,9 +1,8 @@
 'use client';
+/* eslint-disable @next/next/no-img-element -- Figma exports must render at their exact intrinsic geometry. */
 
 import { useState } from 'react';
 import type { Conversation } from '@/lib/types';
-import { useTheme } from '@/components/theme-provider';
-import { AgentMark } from './agent-mark';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -18,125 +17,105 @@ interface SidebarProps {
   apiKeyConfigured: boolean;
 }
 
-const NavIcon = ({ kind }: { kind: 'skills' | 'mcp' | 'chat' }) => {
-  if (kind === 'skills') {
-    return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M7 3h10l4 4v10l-4 4H7l-4-4V7l4-4Z"/><path d="m9 9 6 6m0-6-6 6"/></svg>;
-  }
-  if (kind === 'mcp') {
-    return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.4 11 7.2-3.7M8.4 13l7.2 3.7"/></svg>;
-  }
-  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 14a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8Z"/><path d="M8 9h8m-8 4h5"/></svg>;
+const FIGMA_ICON = {
+  skills: '/figma/icon-skill.svg',
+  mcp: '/figma/icon-mcp.svg',
+  newChat: '/figma/icon-new-chat.svg',
+  workspace: '/figma/icon-workspace.svg',
+  recent: '/figma/icon-recent.svg',
 };
 
 export function Sidebar({
   conversations, activeId, runningConvIds, onSelect, onArchive, onRestore, onDelete,
   onNewChat, onLogout, apiKeyConfigured,
 }: SidebarProps) {
-  const { dark, toggle } = useTheme();
-  const [expanded, setExpanded] = useState(true);
-  const [showArchived, setShowArchived] = useState(false);
+  const [section, setSection] = useState<'none' | 'recent' | 'archived'>('none');
   const activeConversations = conversations.filter((conversation) => !conversation.archived);
   const archivedConversations = conversations.filter((conversation) => conversation.archived);
+  const visibleConversations = section === 'archived' ? archivedConversations : activeConversations;
 
   return (
-    <aside className="flex h-full w-[284px] flex-shrink-0 flex-col bg-[#f7f7f5] px-5 pb-5 pt-6 text-[#292929] dark:bg-[#1d1e1b] dark:text-[#eeeeea] lg:w-[284px]">
-      <div className="flex items-center gap-2 px-1">
-        <AgentMark className="h-8 w-8" compact />
-        <span className="text-[17px] font-semibold tracking-[-0.035em]">MOAgent</span>
+    <aside className="relative h-full w-[284px] flex-shrink-0 overflow-hidden bg-[#f5f5f5] text-[#5e5e5e]">
+      <div className="absolute left-[27px] top-[32px] flex h-[27px] items-center">
+        <img className="h-[27px] w-[27px]" src="/figma/sidebar-accent.svg" alt="" />
+        <img className="ml-[11px] h-[18px] w-[37px]" src="/figma/logo-mark.svg" alt="MO" />
+        <img className="ml-[3px] h-[21px] w-[58px]" src="/figma/logo-wordmark.svg" alt="Agent" />
       </div>
+      <img className="absolute left-[244px] top-[35px] h-5 w-5" src="/figma/icon-sidebar-toggle.svg" alt="" />
 
-      <nav className="mt-11 rounded-[17px] bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)] dark:bg-[#272824]">
-        <button type="button" disabled title="Skills 管理即将开放" className="flex h-[52px] w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-[13px] opacity-60">
-          <NavIcon kind="skills" />
-          <span>Skills</span>
-          <span className="ml-auto text-[#aaa9a4]">›</span>
+      <nav className="absolute left-[27px] top-[108px] h-[172px] w-[237px] rounded-[16px] bg-white px-[25px] py-[10px]">
+        <button type="button" disabled title="Skills 管理即将开放" className="flex h-[47px] w-full cursor-not-allowed items-center gap-[14px] text-[16px] font-medium opacity-70">
+          <img className="h-[16px] w-[16px]" src={FIGMA_ICON.skills} alt="" />
+          Skills
         </button>
-        <button type="button" disabled title="MCP 管理即将开放" className="flex h-[52px] w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-[13px] opacity-60">
-          <NavIcon kind="mcp" />
-          <span>MCP</span>
-          <span className="ml-auto text-[#aaa9a4]">›</span>
+        <button type="button" disabled title="MCP 管理即将开放" className="flex h-[47px] w-full cursor-not-allowed items-center gap-[14px] text-[16px] font-medium opacity-70">
+          <img className="h-[16px] w-[16px]" src={FIGMA_ICON.mcp} alt="" />
+          MCP
         </button>
-        <button
-          type="button"
-          onClick={onNewChat}
-          className="flex h-[52px] w-full items-center gap-3 rounded-xl px-3 text-[13px] transition-colors hover:bg-[#f5f5f2] dark:hover:bg-[#30312d]"
-        >
-          <NavIcon kind="chat" />
-          <span>新对话</span>
-          <span className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-[#f1f1ee] text-base dark:bg-[#383934]">+</span>
+        <button type="button" onClick={onNewChat} className="flex h-[47px] w-full items-center gap-[14px] text-[16px] font-medium">
+          <img className="h-[16px] w-[16px]" src={FIGMA_ICON.newChat} alt="" />
+          新对话
         </button>
       </nav>
 
-      <div className="mt-7 flex min-h-0 flex-1 flex-col">
+      <div className="absolute left-[53px] right-[30px] top-[316px]">
+        <button type="button" className="flex h-[47px] w-full items-center text-[14px] text-[#848383]">
+          <img className="mr-[13px] h-[14px] w-[14px]" src={FIGMA_ICON.workspace} alt="" />
+          工作空间
+          <img className="ml-[13px] h-[5px] w-[9px] -rotate-90" src="/figma/caret-down.svg" alt="" />
+        </button>
         <button
           type="button"
-          onClick={() => setExpanded((value) => !value)}
-          className="flex w-full items-center px-2 text-[12px] font-medium text-[#676762] dark:text-[#b7b7b1]"
+          onClick={() => setSection((current) => current === 'recent' ? 'none' : 'recent')}
+          className="flex h-[47px] w-full items-center text-[14px] text-[#848383]"
         >
-          工作空间
-          <span className={`ml-auto transition-transform ${expanded ? 'rotate-90' : ''}`}>›</span>
-        </button>
-
-        <div className="mt-5 flex items-center px-2">
-          <button
-            type="button"
-            onClick={() => setShowArchived(false)}
-            className={`text-[12px] font-medium ${showArchived ? 'text-[#aaa9a4]' : 'text-[#292929] dark:text-white'}`}
-          >
-            最近会话
-          </button>
+          <img className="mr-[13px] h-[13px] w-[13px]" src={FIGMA_ICON.recent} alt="" />
+          最近会话
+          <img className={`ml-[13px] h-[5px] w-[9px] transition-transform ${section === 'recent' ? '' : '-rotate-90'}`} src="/figma/caret-down.svg" alt="" />
           {activeConversations.length > 0 && (
-            <span className="ml-2 rounded-full bg-[#65d45e] px-2 py-0.5 text-[9px] font-bold text-[#21431f]">
+            <span className="ml-[12px] flex h-[15px] min-w-[22px] items-center justify-center rounded-[8px] bg-[#32ce50] px-1 text-[10px] font-medium text-white">
               {activeConversations.length}
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setShowArchived((value) => !value)}
-            className="ml-auto text-[10px] text-[#aaa9a4] hover:text-[#676762]"
-          >
-            {showArchived ? '返回' : '归档'}
-          </button>
-        </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection((current) => current === 'archived' ? 'none' : 'archived')}
+          className="ml-[27px] mt-1 text-[10px] text-[#aaa]"
+        >
+          {section === 'archived' ? '收起归档' : '查看归档'}
+        </button>
 
-        {expanded && (
-          <div className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {(showArchived ? archivedConversations : activeConversations).map((conversation) => {
+        {section !== 'none' && (
+          <div
+            className="mt-2 space-y-1 overflow-y-auto pr-1"
+            style={{ maxHeight: 'min(240px, calc(73vh - 430px))' }}
+          >
+            {visibleConversations.map((conversation) => {
               const active = conversation.id === activeId;
               const running = runningConvIds.has(conversation.id);
               return (
-                <div
-                  key={conversation.id}
-                  className={`group flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] transition-colors ${
-                    active ? 'bg-white text-[#262626] shadow-sm dark:bg-[#292a26] dark:text-white' : 'text-[#777771] hover:bg-white/70 dark:text-[#a5a59f] dark:hover:bg-[#292a26]'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onSelect(conversation.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left focus:outline-none focus-visible:underline"
-                  >
-                    <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${running ? 'animate-pulse bg-[#65d45e]' : 'bg-[#d0d0cb]'}`} />
-                    <span className="min-w-0 flex-1 truncate">{conversation.title || '新对话'}</span>
+                <div key={conversation.id} className={`group flex items-center rounded-lg px-2 py-1.5 text-[11px] ${active ? 'bg-white' : 'hover:bg-white/70'}`}>
+                  <button type="button" onClick={() => onSelect(conversation.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <span className={`h-1.5 w-1.5 rounded-full ${running ? 'animate-pulse bg-[#32ce50]' : 'bg-[#cfcfcf]'}`} />
+                    <span className="truncate">{conversation.title || '新对话'}</span>
                   </button>
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (showArchived) onRestore(conversation.id);
-                      else onArchive(conversation.id);
-                    }}
-                    className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
-                    title={showArchived ? '恢复' : '归档'}
+                    onClick={() => section === 'archived' ? onRestore(conversation.id) : onArchive(conversation.id)}
+                    className="ml-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                    aria-label={`${section === 'archived' ? '恢复' : '归档'}会话 ${conversation.title || '新对话'}`}
+                    title={section === 'archived' ? '恢复会话' : '归档会话'}
                   >
-                    {showArchived ? '↩' : '…'}
+                    {section === 'archived' ? '↩' : '…'}
                   </button>
-                  {showArchived && (
+                  {section === 'archived' && (
                     <button
                       type="button"
-                      onClick={(event) => { event.stopPropagation(); onDelete(conversation.id); }}
-                      className="opacity-0 text-red-400 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
-                      title="永久删除"
+                      onClick={() => onDelete(conversation.id)}
+                      className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                      aria-label={`永久删除会话 ${conversation.title || '新对话'}`}
+                      title="永久删除会话"
                     >
                       ×
                     </button>
@@ -144,33 +123,22 @@ export function Sidebar({
                 </div>
               );
             })}
-            {(showArchived ? archivedConversations : activeConversations).length === 0 && (
-              <p className="px-2 py-5 text-[10px] text-[#aaa9a4]">{showArchived ? '暂无归档会话' : '暂无会话'}</p>
-            )}
           </div>
         )}
       </div>
 
-      <div className="mt-auto flex items-center gap-3 border-t border-[#e9e9e5] px-1 pt-4 dark:border-[#32332e]">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e7e7e3] text-[11px] font-semibold text-[#85857f] dark:bg-[#30312d]">T</span>
+      <div className="absolute left-[30px] top-[73%] flex h-[30px] items-center">
+        <img className="h-[30px] w-[30px]" src="/figma/avatar.svg" alt="" />
         <button
           type="button"
           onClick={() => apiKeyConfigured ? void onLogout() : undefined}
-          className="text-left"
+          className="ml-[10px] text-[14px] font-medium text-[#5e5e5e]"
           title={apiKeyConfigured ? '登出并删除已保存的 API Key' : '尚未保存 API Key'}
         >
-          <span className="block text-[12px] font-medium">Teddy</span>
-          <span className="block text-[9px] text-[#aaa9a4]">{apiKeyConfigured ? '登出' : '访客模式'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={toggle}
-          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-[#8b8b85] hover:bg-white dark:hover:bg-[#30312d]"
-          title={dark ? '切换浅色模式' : '切换深色模式'}
-        >
-          {dark ? '☀' : '◐'}
+          登出
         </button>
       </div>
+      <img className="absolute left-[244px] top-[73%] mt-[6px] h-[18px] w-[18px]" src="/figma/icon-logout.svg" alt="" />
     </aside>
   );
 }

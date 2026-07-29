@@ -1,4 +1,5 @@
 'use client';
+/* eslint-disable @next/next/no-img-element -- Figma exports must render at their exact intrinsic geometry. */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MODELS } from '@/lib/types';
@@ -23,6 +24,7 @@ interface ChatInputProps {
   disabled: boolean;
   contextTokens?: number;
   contextLimit?: number;
+  figmaPlacement?: boolean;
 }
 
 interface AttachedFile {
@@ -34,7 +36,7 @@ interface AttachedFile {
 export function ChatInput({
   onSend, onModelChange, selectedModel, apiKey, onApiKeyChange,
   apiKeyConfigured, credentialSaving, credentialError, onApiKeyCommit, onLogout, baseUrl, onBaseUrlChange,
-  workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000,
+  workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000, figmaPlacement = false,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -73,9 +75,12 @@ export function ChatInput({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px';
+      textareaRef.current.style.height = Math.max(
+        figmaPlacement ? 94 : 0,
+        Math.min(textareaRef.current.scrollHeight, 160),
+      ) + 'px';
     }
-  }, [input]);
+  }, [input, figmaPlacement]);
 
   const handleSubmit = () => {
     const hasContent = input.trim() || files.length > 0;
@@ -131,11 +136,14 @@ export function ChatInput({
   const fmt = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n);
 
   return (
-    <div className="px-6 pb-6 pt-2">
-      <div className="mx-auto w-full max-w-[736px]">
+    <div
+      className={figmaPlacement ? "absolute left-0 right-0 px-6" : "px-6 pb-6 pt-2"}
+      style={figmaPlacement ? { top: 'min(626px, calc(100vh - 174px))' } : undefined}
+    >
+      <div className="mx-auto w-full max-w-[735px]">
         {/* Settings bar */}
         {showSettings && (
-          <div className="mb-3 rounded-[18px] border border-[#e7e7e3] bg-white p-4 shadow-[0_12px_32px_rgba(0,0,0,0.06)] dark:border-zinc-700 dark:bg-zinc-900 animate-fade-in-up">
+          <div className={`${figmaPlacement ? 'absolute bottom-[168px] left-6 right-6' : 'mb-3'} rounded-[18px] border border-[#e7e7e3] bg-white p-4 shadow-[0_12px_32px_rgba(0,0,0,0.06)] dark:border-zinc-700 dark:bg-zinc-900 animate-fade-in-up`}>
             <div className="grid grid-cols-2 gap-2.5">
               <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 模型
@@ -253,7 +261,7 @@ export function ChatInput({
 
         {/* Attached files */}
         {files.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
+          <div className={`${figmaPlacement ? 'absolute bottom-[168px] left-6 right-6' : 'mb-2'} flex flex-wrap gap-1.5`}>
             {files.map((f, i) => (
               <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-[11px] text-indigo-600 dark:text-indigo-300 font-mono">
                 {f.name} ({formatSize(f.size)})
@@ -264,7 +272,7 @@ export function ChatInput({
         )}
 
         {/* Context bar */}
-        {contextTokens > 0 && (
+        {contextTokens > 0 && !figmaPlacement && (
           <div className="mb-2 flex items-center gap-2">
             <div className="flex-1 h-1 rounded-full bg-gray-200 dark:bg-zinc-800 overflow-hidden">
               <div
@@ -283,7 +291,7 @@ export function ChatInput({
         )}
 
         {/* Composer */}
-        <div className="rounded-[20px] border border-[#ddddda] bg-white px-4 pb-3 pt-4 shadow-[0_8px_30px_rgba(30,30,30,0.05)] transition-all focus-within:border-[#bfcfbc] focus-within:shadow-[0_10px_34px_rgba(76,139,71,0.09)] dark:border-zinc-700 dark:bg-zinc-900">
+        <div className={`rounded-[22px] border border-[#cacaca] bg-white px-[10px] pb-[10px] pt-[13px] shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-all focus-within:border-[#a8a8a8] dark:border-zinc-700 dark:bg-zinc-900 ${figmaPlacement ? 'h-[160px]' : ''}`}>
           <input
             ref={fileInputRef}
             type="file"
@@ -298,34 +306,37 @@ export function ChatInput({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={workdir ? `${workdir.split('/').pop()} 项目中，输入消息，@引用文件，$引用 Skills...` : '输入消息，@引用文件，$引用 Skills，描述你想完成的任务...'}
+            placeholder={workdir
+              ? `${workdir.split('/').pop()} 项目中，输入消息，@引用文件，$引用 Skills...`
+              : figmaPlacement
+                ? '输入消息，@引用文件，$引用Skills，提示词可队列发送…'
+                : '输入消息，@引用文件，$引用 Skills，描述你想完成的任务...'}
             disabled={disabled}
             rows={3}
-            className="block min-h-[76px] w-full resize-none bg-transparent px-1 text-[13px] leading-relaxed text-[#33332f] placeholder-[#a9a9a4] focus:outline-none disabled:opacity-40 dark:text-zinc-200 dark:placeholder-zinc-600"
+            className={`block w-full resize-none bg-transparent px-[10px] text-[15px] leading-[24px] text-[#33332f] placeholder-[#a9a9a9] focus:outline-none disabled:opacity-40 dark:text-zinc-200 dark:placeholder-zinc-600 ${figmaPlacement ? 'h-[94px]' : 'min-h-[76px]'}`}
           />
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-[3px] flex items-center gap-[8px]">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`flex h-8 items-center gap-2 rounded-full px-3 text-[10px] font-medium transition-all flex-shrink-0 ${
+              className={`flex h-[30px] min-w-[157px] flex-shrink-0 items-center rounded-[30px] border border-[#cacaca] px-[8px] text-[12px] font-medium text-[#898989] shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-all ${
                 showSettings
-                  ? 'bg-[#eaf8e8] text-[#438b40] dark:bg-emerald-500/10 dark:text-emerald-300'
-                  : 'bg-[#f4f4f1] text-[#565650] hover:bg-[#ebebe7] dark:bg-zinc-800 dark:text-zinc-400'
+                  ? 'bg-[#f5f5f5]'
+                  : 'bg-white hover:bg-[#f7f7f7] dark:bg-zinc-800 dark:text-zinc-400'
               }`}
             >
-              {selectedModelInfo?.name || selectedModel}
-              <span className="text-[#aaa9a4]">⌄</span>
+              <img className="mr-[6px] h-[17px] w-[17px]" src="/figma/icon-claude.svg" alt="" />
+              <span className="max-w-[106px] truncate">{selectedModelInfo?.name || selectedModel}</span>
+              <img className="ml-auto h-[5px] w-[9px]" src="/figma/caret-down.svg" alt="" />
             </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#f4f4f1] text-[#777771] transition-colors hover:bg-[#ebebe7] disabled:opacity-20 dark:bg-zinc-800 dark:text-zinc-400"
+              className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[30px] border border-[#cacaca] bg-white shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-colors hover:bg-[#f7f7f7] disabled:opacity-20 dark:bg-zinc-800"
               title="添加文件"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-              </svg>
+              <img className="h-[13px] w-[13px]" src="/figma/icon-attachment.svg" alt="" />
             </button>
             {baseUrl && (
               <span
@@ -340,20 +351,19 @@ export function ChatInput({
             <button
               onClick={handleSubmit}
               disabled={disabled || (!input.trim() && files.length === 0)}
-              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-[#202020] text-white transition-all hover:bg-[#65d45e] hover:text-[#183a16] disabled:cursor-not-allowed disabled:bg-[#f0f0ed] disabled:text-[#c7c7c2] dark:disabled:bg-zinc-800"
+              className="ml-auto flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-[#ececed] transition-all hover:bg-[#dedede] disabled:cursor-not-allowed dark:disabled:bg-zinc-800"
               title="发送"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 19V5" />
-                <path d="m6 11 6-6 6 6" />
-              </svg>
+              <img className="h-[10px] w-[11px] -rotate-90" src="/figma/arrow-up.svg" alt="" />
             </button>
           </div>
         </div>
 
-        <p className="mt-2 text-center text-[9px] text-[#b3b3ae] dark:text-zinc-600">
-          回车发送 · Shift + 回车换行 · 任务会在后台持续运行
-        </p>
+        {!figmaPlacement && (
+          <p className="mt-2 text-center text-[9px] text-[#b3b3ae] dark:text-zinc-600">
+            回车发送 · Shift + 回车换行 · 任务会在后台持续运行
+          </p>
+        )}
       </div>
     </div>
   );

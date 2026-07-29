@@ -241,14 +241,7 @@ export default function ChatPage() {
         onLogout={logout}
         apiKeyConfigured={apiKeyConfigured}
       />
-      <main className="flex min-w-0 flex-1 flex-col bg-[#fdfdfc] dark:bg-zinc-950">
-        {activeConversation?.workdir && (
-          <div className="flex h-10 items-center border-b border-[#eeeeeb] px-7 dark:border-zinc-800">
-            <span className="truncate rounded-full bg-[#f3f3f0] px-3 py-1 text-[9px] text-[#7b7b76] dark:bg-zinc-900 dark:text-zinc-500">
-              {activeConversation.workdir}
-            </span>
-          </div>
-        )}
+      <main className="relative flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950 min-[1440px]:w-[836px] min-[1440px]:flex-none">
         {(activeConversation?.messages.length || 0) > 0 ? (
           <MessageList
             messages={activeConversation?.messages || []}
@@ -278,9 +271,10 @@ export default function ChatPage() {
           disabled={Boolean(activeConversation?.activeRun)}
           contextTokens={activeConversation?.contextTokens ?? 0}
           contextLimit={MODELS.find((entry) => entry.id === activeConversation?.model)?.contextLimit ?? 128_000}
+          figmaPlacement={(activeConversation?.messages.length || 0) === 0}
         />
       </main>
-      <TaskPanel conversations={conversations} activeId={activeId} onSelect={selectConversation} />
+      <TaskPanel />
       <DirectoryPicker
         value=""
         open={showPicker}
