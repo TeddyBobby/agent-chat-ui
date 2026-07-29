@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Message } from '@/lib/types';
 import { ToolCallCard } from './tool-call-card';
-import { shouldShowToolCalls } from './tool-call-state';
+import { getToolSummary } from './tool-call-state';
 import { AgentMark } from './agent-mark';
 
 // ── Code block copy ──
@@ -167,7 +167,8 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const [showTools, setShowTools] = useState(false);
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
-  const toolsVisible = shouldShowToolCalls(showTools, message.toolCalls);
+  const runningTool = message.toolCalls?.find(tc => tc.status === 'running');
+  const toolSummary = getToolSummary(message.toolCalls);
 
   const { files, cleanContent } = useMemo(
     () => parseFiles(message.content),
@@ -200,24 +201,6 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
           <div className="text-[11px] font-medium text-gray-400 dark:text-zinc-500 mb-1 tracking-wide">
             {isUser ? '你' : 'MOAgent'}
           </div>
-
-          {/* Agent status */}
-          {!isUser && streaming && totalTools > 0 && (
-            <div className="mb-2 flex items-center gap-2">
-              <span className="h-3 w-3 flex-shrink-0 animate-spin rounded-full border-2 border-[#65d45e]/40 border-t-[#65d45e]" />
-              <span className="text-[12px] font-medium text-[#55a451] dark:text-emerald-400/80">
-                {(() => {
-                  const running = message.toolCalls?.find(tc => tc.status === 'running');
-                  if (running) {
-                    const label = {read_file:'Reading',write_file:'Writing',edit_file:'Editing',search_code:'Searching',run_command:'Running'}[running.name] || running.name;
-                    const arg = running.args?.path?.toString().split('/').pop() || running.args?.command?.toString().slice(0,30) || '';
-                    return `${label} ${arg}`;
-                  }
-                  return `Executing ${completedTools}/${totalTools} tools`;
-                })()}
-              </span>
-            </div>
-          )}
 
           {/* File attachments */}
           {files.length > 0 && (
@@ -336,19 +319,26 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
             <div className="mt-2">
               <button
                 onClick={() => setShowTools(!showTools)}
-                className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-400 transition-colors"
+                className={`flex items-center gap-1.5 text-[11px] transition-colors ${
+                  runningTool
+                    ? 'text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200'
+                    : 'text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-400'
+                }`}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                   className={`transition-transform ${showTools ? 'rotate-90' : ''}`}>
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
-                {completedTools}/{totalTools} tools
+                {runningTool && (
+                  <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-2 border-amber-400/40 border-t-amber-500" />
+                )}
+                <span className="truncate">{toolSummary}</span>
                 {completedTools === totalTools && totalTools > 0 && (
                   <span className="text-emerald-500">✓</span>
                 )}
               </button>
 
-              {toolsVisible && (
+              {showTools && (
                 <div className="mt-1.5 space-y-1">
                   {message.toolCalls!.map((tc) => (
                     <ToolCallCard key={tc.id} toolCall={tc} />
