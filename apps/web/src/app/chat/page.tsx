@@ -7,6 +7,7 @@ import { MessageList } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
 import { DirectoryPicker } from "@/components/chat/directory-picker";
 import { WelcomeDashboard } from "@/components/chat/welcome-dashboard";
+import { TaskPanel } from "@/components/chat/task-panel";
 import type { Conversation, Run, RunEvent } from "@/lib/types";
 import { MODELS } from "@/lib/types";
 import { conversationApi, credentialApi, streamRunEvents } from "@/lib/api";
@@ -40,6 +41,7 @@ export default function ChatPage() {
   const [hydrated, setHydrated] = useState(false);
   const [pickerPurpose, setPickerPurpose] = useState<"new" | "workspace" | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [taskPanelCollapsed, setTaskPanelCollapsed] = useState(true);
   const [composerDraft, setComposerDraft] = useState<{ id: number; content: string }>();
   const subscriptions = useRef(new Map<string, AbortController>());
   const credentialSave = useRef<Promise<void> | null>(null);
@@ -269,6 +271,20 @@ export default function ChatPage() {
         onUsePrompt={queuePrompt}
       />
       <main className="relative flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950">
+        {taskPanelCollapsed && (
+          <button
+            type="button"
+            onClick={() => setTaskPanelCollapsed(false)}
+            className="absolute right-5 top-5 z-20 hidden h-8 w-8 items-center justify-center rounded-lg border border-[#dedede] bg-white text-[#666] shadow-sm transition-colors hover:bg-[#f5f5f5] min-[1200px]:flex dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            aria-label="打开右侧工作区"
+            title="打开右侧工作区"
+          >
+            <svg aria-hidden="true" width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <rect x="1.5" y="1.5" width="14" height="14" rx="3" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M11.25 2V15" stroke="currentColor" strokeWidth="1.3" />
+            </svg>
+          </button>
+        )}
         {(activeConversation?.messages.length || 0) > 0 ? (
           <MessageList
             messages={activeConversation?.messages || []}
@@ -304,6 +320,15 @@ export default function ChatPage() {
           draft={composerDraft}
         />
       </main>
+      <TaskPanel
+        workdir={activeConversation?.workdir || ""}
+        collapsed={taskPanelCollapsed}
+        onCollapsedChange={setTaskPanelCollapsed}
+        onRequestReview={() => void handleSend(
+          "请审查当前工作目录中的未提交代码改动。请重点检查正确性、安全性、回归风险和测试覆盖，并按严重程度列出发现，注明文件路径和位置。",
+        )}
+        reviewDisabled={Boolean(activeConversation?.activeRun)}
+      />
       <DirectoryPicker
         value=""
         open={pickerPurpose !== null}

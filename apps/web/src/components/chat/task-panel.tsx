@@ -110,46 +110,7 @@ export function TaskPanel({
     : undefined;
 
   if (collapsed) {
-    return (
-      <aside className="relative hidden h-full w-[44px] flex-shrink-0 border-l border-[#dfdfdf] bg-[#f7f7f6] min-[1200px]:block">
-        <button
-          type="button"
-          onClick={() => onCollapsedChange(false)}
-          className="absolute left-[9px] top-[28px] flex h-7 w-7 items-center justify-center rounded-md text-[16px] text-[#777] hover:bg-white"
-          aria-label="展开右侧工作区"
-          title="展开工作区"
-        >
-          ‹
-        </button>
-        <CollapsedTab
-          label="文件"
-          active={activeTab === 'explorer'}
-          top={76}
-          onClick={() => {
-            setActiveTab('explorer');
-            onCollapsedChange(false);
-          }}
-        >
-          F
-        </CollapsedTab>
-        <CollapsedTab
-          label="代码审查"
-          active={activeTab === 'review'}
-          top={114}
-          onClick={() => {
-            setActiveTab('review');
-            onCollapsedChange(false);
-          }}
-        >
-          Δ
-        </CollapsedTab>
-        {openFiles.length > 0 && (
-          <span className="absolute left-[13px] top-[154px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#32ce50] px-1 text-[9px] text-white">
-            {openFiles.length}
-          </span>
-        )}
-      </aside>
-    );
+    return null;
   }
 
   return (
@@ -307,35 +268,6 @@ function BrowserTab({
         </button>
       )}
     </div>
-  );
-}
-
-function CollapsedTab({
-  active,
-  top,
-  label,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  top: number;
-  label: string;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`absolute left-[8px] flex h-7 w-7 items-center justify-center rounded-md text-[10px] ${
-        active ? 'bg-white font-semibold text-[#32a94a] shadow-sm' : 'text-[#888] hover:bg-white'
-      }`}
-      style={{ top }}
-      aria-label={`打开${label}`}
-      title={label}
-    >
-      {children}
-    </button>
   );
 }
 
