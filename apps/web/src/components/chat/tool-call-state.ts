@@ -12,6 +12,15 @@ interface ToolSummaryItem {
   args?: Record<string, unknown>;
 }
 
+export interface ToolDisclosureState {
+  expanded: boolean;
+  taskRunning: boolean;
+}
+
+export function isToolDisclosureOpen(state: ToolDisclosureState, taskRunning: boolean) {
+  return state.taskRunning === taskRunning && state.expanded;
+}
+
 export interface ToolSummarySnapshot {
   text: string;
   running: boolean;

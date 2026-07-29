@@ -8,6 +8,7 @@ import { Message } from '@/lib/types';
 import { ToolCallCard } from './tool-call-card';
 import {
   getToolSummarySnapshot,
+  isToolDisclosureOpen,
   reconcileToolSummary,
   type ToolSummaryView,
 } from './tool-call-state';
@@ -168,7 +169,11 @@ function getFileMeta(name: string) {
 
 export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
-  const [showTools, setShowTools] = useState(false);
+  const [toolDisclosure, setToolDisclosure] = useState({
+    expanded: false,
+    taskRunning: Boolean(streaming),
+  });
+  const showTools = isToolDisclosureOpen(toolDisclosure, Boolean(streaming));
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
   const desiredToolSummary = useMemo(
@@ -344,8 +349,8 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
           {totalTools > 0 && (
             <div className="mt-2">
               <button
-                onClick={() => setShowTools(!showTools)}
-                className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-md px-1 text-[11px] transition-colors ${
+                onClick={() => setToolDisclosure({ expanded: !showTools, taskRunning: Boolean(streaming) })}
+                className={`inline-flex h-7 max-w-full items-center gap-1 rounded-md px-1 text-[11px] transition-colors ${
                   toolSummary.running
                     ? 'text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200'
                     : 'text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-400'
@@ -355,17 +360,13 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                   className={`transition-transform ${showTools ? 'rotate-90' : ''}`}>
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
-                <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
                 {toolSummary.running && (
                   <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-2 border-amber-400/40 border-t-amber-500" />
                 )}
-                </span>
                 <span className="max-w-[360px] truncate text-left">{toolSummary.text}</span>
-                <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
                 {!toolSummary.running && completedTools === totalTools && totalTools > 0 && (
                   <span className="text-emerald-500">✓</span>
                 )}
-                </span>
               </button>
 
               {showTools && (

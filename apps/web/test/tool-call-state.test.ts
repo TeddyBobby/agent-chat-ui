@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   getToolSummary,
   getToolSummarySnapshot,
+  isToolDisclosureOpen,
   reconcileToolSummary,
   type ToolSummaryView,
 } from '../src/components/chat/tool-call-state.js';
@@ -68,4 +69,10 @@ test('rapid tool changes are coalesced instead of changing every frame', () => {
   );
   assert.deepEqual(transition.view, current);
   assert.equal(transition.retryIn, 120);
+});
+
+test('an expanded tool list collapses when the task ends', () => {
+  const disclosure = { expanded: true, taskRunning: true };
+  assert.equal(isToolDisclosureOpen(disclosure, true), true);
+  assert.equal(isToolDisclosureOpen(disclosure, false), false);
 });

@@ -21,7 +21,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const isDone = toolCall.status === 'completed';
   const isError = toolCall.status === 'error';
   const hasResult = !!(toolCall.result || toolCall.error);
-  const [expanded, setExpanded] = useState(isRunning);
+  const [expanded, setExpanded] = useState(false);
 
   const a = toolCall.args || {};
   const argsPreview = a.path
@@ -43,7 +43,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
       <button
         type="button"
         onClick={() => setExpanded((current) => !current)}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-black/[0.025] dark:hover:bg-white/[0.025]"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left hover:bg-black/[0.025] dark:hover:bg-white/[0.025]"
         aria-expanded={expanded}
         aria-label={`${expanded ? '收起' : '展开'} ${label} 工具详情`}
       >
