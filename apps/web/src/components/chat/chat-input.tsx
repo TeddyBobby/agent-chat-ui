@@ -11,6 +11,11 @@ interface ChatInputProps {
   selectedModel: string;
   apiKey: string;
   onApiKeyChange: (key: string) => void;
+  apiKeyConfigured: boolean;
+  credentialSaving: boolean;
+  credentialError?: string;
+  onApiKeyCommit: () => Promise<void>;
+  onLogout: () => Promise<void>;
   baseUrl: string;
   onBaseUrlChange: (url: string) => void;
   workdir: string;
@@ -28,7 +33,8 @@ interface AttachedFile {
 
 export function ChatInput({
   onSend, onModelChange, selectedModel, apiKey, onApiKeyChange,
-  baseUrl, onBaseUrlChange, workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000,
+  apiKeyConfigured, credentialSaving, credentialError, onApiKeyCommit, onLogout, baseUrl, onBaseUrlChange,
+  workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -45,10 +51,11 @@ export function ChatInput({
     setTesting(true);
     setTestResult(null);
     try {
+      await onApiKeyCommit();
       const res = await fetch(`${API_URL}/v1/test-connection`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ baseUrl, apiKey, model: selectedModel }),
+        body: JSON.stringify({ baseUrl, model: selectedModel }),
       });
       const data = await res.json();
       setTestResult(data);
@@ -146,11 +153,33 @@ export function ChatInput({
                 密钥
                 <input
                   type="password"
+                  autoComplete="off"
                   value={apiKey}
                   onChange={(e) => onApiKeyChange(e.target.value)}
-                  placeholder="sk-..."
+                  onBlur={() => void onApiKeyCommit().catch(() => undefined)}
+                  placeholder={apiKeyConfigured ? "已安全保存，输入可替换" : "sk-..."}
                   className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                 />
+                {apiKey.trim() && (
+                  <button
+                    type="button"
+                    disabled={credentialSaving}
+                    onClick={() => void onApiKeyCommit().catch(() => undefined)}
+                    className="text-[10px] px-1.5 py-1 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 disabled:opacity-50 transition-colors flex-shrink-0"
+                  >
+                    {credentialSaving ? "保存中..." : "保存"}
+                  </button>
+                )}
+                {apiKeyConfigured && (
+                  <button
+                    type="button"
+                    onClick={() => void onLogout()}
+                    className="text-[10px] px-1.5 py-1 rounded text-emerald-600 dark:text-emerald-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 transition-colors flex-shrink-0"
+                    title="登出并删除已保存的 API Key"
+                  >
+                    已保存 · 登出
+                  </button>
+                )}
               </label>
               <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 API 地址
@@ -184,6 +213,11 @@ export function ChatInput({
                 </div>
               </label>
             </div>
+            {credentialError && (
+              <div className="mt-2 text-[11px] text-red-500 dark:text-red-400">
+                {credentialError}
+              </div>
+            )}
             {testResult && (
               <div className={`mt-2.5 p-2.5 rounded-lg text-[11px] leading-relaxed ${
                 testResult.success

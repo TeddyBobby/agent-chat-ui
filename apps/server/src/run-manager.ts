@@ -1,6 +1,7 @@
 import { PiAgent, createTools, type StepEvent } from "@pi-agent/agent";
 import { isActiveRun, type Run, type RunEvent, type StartRunRequest } from "@pi-agent/contracts";
 import { AppDatabase } from "./database.js";
+import { CredentialVault } from "./credential-vault.js";
 
 type Subscriber = (event: RunEvent) => void;
 type NewRunEvent = RunEvent extends infer Event
@@ -13,7 +14,10 @@ export class RunManager {
   private subscribers = new Map<string, Set<Subscriber>>();
   private controllers = new Map<string, AbortController>();
 
-  constructor(private readonly database: AppDatabase) {}
+  constructor(
+    private readonly database: AppDatabase,
+    private readonly credentials: CredentialVault,
+  ) {}
 
   start(conversationId: string, request: StartRunRequest): Run {
     const { run, created } = this.database.startRun({
@@ -79,37 +83,29 @@ export class RunManager {
     if (!conversation) return;
     const controller = new AbortController();
     this.controllers.set(run.id, controller);
-    this.publish(run.id, { type: "run.started" });
-
-    const apiBase = resolveBaseUrl(request.model, request.baseUrl);
-    const isLocal = apiBase.includes("localhost") || apiBase.includes("127.0.0.1");
-    const apiKey = request.apiKey ||
-      (request.model.startsWith("deepseek") ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY) ||
-      "";
-
-    if (!apiKey && !isLocal) {
-      const message = "需要 API 密钥";
-      this.publish(run.id, { type: "run.failed", message });
-      this.controllers.delete(run.id);
-      return;
-    }
-
-    const workdir = conversation.workdir || process.env.PI_AGENT_WORKDIR || process.env.INIT_CWD || process.cwd();
-    const history = this.database.getHistory(run.conversationId, run.assistantMessageId);
-    const task = history.at(-1)?.role === "user" ? history.pop()!.content : request.content;
-    const agent = new PiAgent({
-      apiKey,
-      model: request.model,
-      baseURL: apiBase,
-      maxSteps: 60,
-      abortSignal: controller.signal,
-      contextLimit: request.contextLimit || 128_000,
-      systemPrompt: `你是一个 coding agent，当前工作目录是 ${workdir}。所有文件路径都相对于这个目录。`,
-    });
-    for (const tool of createTools(workdir)) agent.use(tool);
-
-    agent.on((event) => this.onAgentEvent(run.id, event));
     try {
+      this.publish(run.id, { type: "run.started" });
+      const apiBase = resolveBaseUrl(request.model, request.baseUrl);
+      const isLocal = apiBase.includes("localhost") || apiBase.includes("127.0.0.1");
+      const apiKey = this.credentials.getApiKey() ||
+        (request.model.startsWith("deepseek") ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY) ||
+        "";
+      if (!apiKey && !isLocal) throw new Error("需要 API 密钥");
+
+      const workdir = conversation.workdir || process.env.PI_AGENT_WORKDIR || process.env.INIT_CWD || process.cwd();
+      const history = this.database.getHistory(run.conversationId, run.assistantMessageId);
+      const task = history.at(-1)?.role === "user" ? history.pop()!.content : request.content;
+      const agent = new PiAgent({
+        apiKey,
+        model: request.model,
+        baseURL: apiBase,
+        maxSteps: 60,
+        abortSignal: controller.signal,
+        contextLimit: request.contextLimit || 128_000,
+        systemPrompt: `你是一个 coding agent，当前工作目录是 ${workdir}。所有文件路径都相对于这个目录。`,
+      });
+      for (const tool of createTools(workdir)) agent.use(tool);
+      agent.on((event) => this.onAgentEvent(run.id, event));
       await agent.run(task, history.length ? history : undefined);
       if (controller.signal.aborted) {
         this.publish(run.id, { type: "run.cancelled" });

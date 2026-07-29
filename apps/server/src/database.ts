@@ -90,6 +90,13 @@ export class AppDatabase {
         created_at INTEGER NOT NULL,
         PRIMARY KEY(run_id, seq)
       );
+      CREATE TABLE IF NOT EXISTS credentials (
+        name TEXT PRIMARY KEY,
+        ciphertext TEXT NOT NULL,
+        iv TEXT NOT NULL,
+        auth_tag TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
     `);
   }
 
@@ -279,6 +286,29 @@ export class AppDatabase {
   setRunStatus(id: string, status: RunStatus, error?: string) {
     this.db.prepare("UPDATE runs SET status = ?, error = ?, updated_at = ? WHERE id = ?")
       .run(status, error || null, Date.now(), id);
+  }
+
+  saveCredential(input: { name: string; ciphertext: string; iv: string; authTag: string }) {
+    this.db.prepare(`
+      INSERT INTO credentials (name, ciphertext, iv, auth_tag, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(name) DO UPDATE SET
+        ciphertext = excluded.ciphertext,
+        iv = excluded.iv,
+        auth_tag = excluded.auth_tag,
+        updated_at = excluded.updated_at
+    `).run(input.name, input.ciphertext, input.iv, input.authTag, Date.now());
+  }
+
+  getCredential(name: string): { ciphertext: string; iv: string; authTag: string } | undefined {
+    const row = this.db.prepare(`
+      SELECT ciphertext, iv, auth_tag FROM credentials WHERE name = ?
+    `).get(name) as { ciphertext: string; iv: string; auth_tag: string } | undefined;
+    return row ? { ciphertext: row.ciphertext, iv: row.iv, authTag: row.auth_tag } : undefined;
+  }
+
+  deleteCredential(name: string) {
+    this.db.prepare("DELETE FROM credentials WHERE name = ?").run(name);
   }
 
   appendEvent(

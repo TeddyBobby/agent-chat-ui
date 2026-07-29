@@ -61,7 +61,6 @@ export type RunEvent =
 export interface StartRunRequest {
   content: string;
   model: string;
-  apiKey?: string;
   baseUrl?: string;
   contextLimit?: number;
   idempotencyKey: string;

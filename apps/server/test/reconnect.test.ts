@@ -1,19 +1,26 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { after, before, test } from "node:test";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Run, RunEvent } from "@pi-agent/contracts";
 import { createAppServer } from "../src/server.js";
+import { AppDatabase } from "../src/database.js";
+import { CredentialVault } from "../src/credential-vault.js";
 
 let app: ReturnType<typeof createAppServer>;
 let apiUrl: string;
 let modelServer: ReturnType<typeof createServer>;
 let modelUrl: string;
 let modelCalls = 0;
+const modelAuthorizations: Array<string | undefined> = [];
 
 before(async () => {
   modelServer = createServer((req, res) => {
     modelCalls += 1;
+    modelAuthorizations.push(req.headers.authorization);
     if (req.url?.includes("/fail/")) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "synthetic model failure" }));
@@ -54,7 +61,6 @@ test("a run survives subscriber disconnect and replays missed events", async () 
     content: "run after refresh",
     model: "fake-model",
     baseUrl: modelUrl,
-    apiKey: "test",
     idempotencyKey: "refresh-run",
   };
   const run = await post(`/v1/conversations/${conversation.id}/runs`, request) as Run;
@@ -94,7 +100,6 @@ test("an idempotency key never starts the agent twice", async () => {
     content: "only once",
     model: "fake-model",
     baseUrl: modelUrl,
-    apiKey: "test",
     idempotencyKey: "same-command",
   };
   const first = await post(`/v1/conversations/${conversation.id}/runs`, request) as Run;
@@ -121,7 +126,6 @@ test("a failed run remains visible in the persisted conversation snapshot", asyn
     content: "fail and persist",
     model: "fail-model",
     baseUrl: `${modelUrl}/fail`,
-    apiKey: "test",
     idempotencyKey: "failed-run",
   }) as Run;
 
@@ -130,6 +134,71 @@ test("a failed run remains visible in the persisted conversation snapshot", asyn
   assert.equal(snapshot.latestRun.id, run.id);
   assert.equal(snapshot.latestRun.status, "failed");
   assert.match(snapshot.messages.at(-1).content, /synthetic model failure/);
+});
+
+test("an encrypted API key is reused for every new conversation until logout", async () => {
+  const saved = await request("/v1/credentials/api-key", "PUT", { apiKey: "sk-persisted-secret" });
+  assert.equal(saved.configured, true);
+
+  for (const idempotencyKey of ["credential-run-one", "credential-run-two"]) {
+    const conversation = await post("/v1/conversations", {
+      model: "fake-model",
+      workdir: process.cwd(),
+    });
+    const run = await post(`/v1/conversations/${conversation.id}/runs`, {
+      content: "use saved credential",
+      model: "fake-model",
+      baseUrl: modelUrl,
+      idempotencyKey,
+    }) as Run;
+    await waitFor(async () => (await get(`/v1/runs/${run.id}`) as Run).status === "completed");
+  }
+
+  assert.deepEqual(modelAuthorizations.slice(-2), [
+    "Bearer sk-persisted-secret",
+    "Bearer sk-persisted-secret",
+  ]);
+  const loggedOut = await post("/v1/logout", {});
+  assert.equal(loggedOut.configured, false);
+  assert.equal((await get("/v1/credentials/api-key")).configured, false);
+});
+
+test("the credential vault stores ciphertext and survives a server restart", () => {
+  const directory = mkdtempSync(join(tmpdir(), "pi-agent-vault-"));
+  const databaseFile = join(directory, "app.db");
+  const keyFile = join(directory, "master.key");
+  try {
+    const firstDatabase = new AppDatabase(databaseFile);
+    const firstVault = new CredentialVault(firstDatabase, keyFile);
+    firstVault.saveApiKey("sk-never-plaintext");
+    const stored = firstDatabase.db.prepare(
+      "SELECT ciphertext FROM credentials WHERE name = 'model-api-key'",
+    ).get() as { ciphertext: string };
+    assert.ok(!stored.ciphertext.includes("sk-never-plaintext"));
+    firstDatabase.close();
+
+    const secondDatabase = new AppDatabase(databaseFile);
+    const secondVault = new CredentialVault(secondDatabase, keyFile);
+    assert.equal(secondVault.getApiKey(), "sk-never-plaintext");
+    assert.equal(readFileSync(keyFile, "utf8").trim().length > 0, true);
+    assert.equal(statSync(keyFile).mode & 0o777, 0o600);
+    secondDatabase.close();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the local server rejects browser requests from untrusted origins", async () => {
+  const rejected = await fetch(`${apiUrl}/v1/credentials/api-key`, {
+    headers: { Origin: "https://malicious.example" },
+  });
+  assert.equal(rejected.status, 403);
+
+  const allowed = await fetch(`${apiUrl}/v1/credentials/api-key`, {
+    headers: { Origin: "http://localhost:3001" },
+  });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.headers.get("access-control-allow-origin"), "http://localhost:3001");
 });
 
 async function readEvents(
@@ -167,10 +236,14 @@ async function readEvents(
 }
 
 async function post(path: string, body: unknown): Promise<any> {
+  return request(path, "POST", body);
+}
+
+async function request(path: string, method: string, body?: unknown): Promise<any> {
   const response = await fetch(`${apiUrl}${path}`, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {
     assert.fail(`${path} returned ${response.status}: ${await response.text()}`);

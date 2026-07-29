@@ -39,6 +39,17 @@ export const conversationApi = {
     }),
 };
 
+export const credentialApi = {
+  status: () => request<{ configured: boolean }>("/v1/credentials/api-key"),
+  save: (apiKey: string) =>
+    request<{ configured: boolean }>("/v1/credentials/api-key", {
+      method: "PUT",
+      body: JSON.stringify({ apiKey }),
+    }),
+  logout: () =>
+    request<{ configured: boolean }>("/v1/logout", { method: "POST" }),
+};
+
 export async function streamRunEvents(input: {
   runId: string;
   after: number;

@@ -5,6 +5,7 @@ import { isActiveRun, isTerminalRunEvent, type StartRunRequest } from "@pi-agent
 import type { Conversation } from "@pi-agent/contracts";
 import { AppDatabase } from "./database.js";
 import { RunManager } from "./run-manager.js";
+import { CredentialVault } from "./credential-vault.js";
 
 export interface ServerOptions {
   database?: string;
@@ -16,10 +17,14 @@ export function createAppServer(options: ServerOptions = {}) {
   const dataFile = options.database || process.env.PI_AGENT_DB ||
     resolve(process.env.INIT_CWD || process.cwd(), ".data/pi-agent.db");
   const database = new AppDatabase(dataFile);
-  const runs = new RunManager(database);
+  const credentials = new CredentialVault(
+    database,
+    dataFile === ":memory:" ? undefined : `${dataFile}.key`,
+  );
+  const runs = new RunManager(database, credentials);
 
   const server = createServer(async (req, res) => {
-    setCors(res);
+    if (!setCors(req, res)) return json(res, 403, { error: "origin not allowed" });
     if (req.method === "OPTIONS") return send(res, 204);
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
@@ -29,6 +34,21 @@ export function createAppServer(options: ServerOptions = {}) {
       }
       if (req.method === "GET" && url.pathname === "/v1/conversations") {
         return json(res, 200, database.listConversations());
+      }
+      if (req.method === "GET" && url.pathname === "/v1/credentials/api-key") {
+        return json(res, 200, { configured: credentials.hasApiKey() });
+      }
+      if (req.method === "PUT" && url.pathname === "/v1/credentials/api-key") {
+        const body = await readJson(req);
+        if (typeof body.apiKey !== "string" || !body.apiKey.trim()) {
+          return json(res, 400, { error: "apiKey is required" });
+        }
+        credentials.saveApiKey(body.apiKey);
+        return json(res, 200, { configured: true });
+      }
+      if (req.method === "POST" && url.pathname === "/v1/logout") {
+        credentials.clearApiKey();
+        return json(res, 200, { configured: false });
       }
       if (req.method === "POST" && url.pathname === "/v1/conversations") {
         const body = await readJson(req);
@@ -119,7 +139,7 @@ export function createAppServer(options: ServerOptions = {}) {
 
       if (req.method === "POST" && url.pathname === "/v1/test-connection") {
         const body = await readJson(req);
-        return testConnection(res, body);
+        return testConnection(res, body, credentials);
       }
 
       return json(res, 404, { error: "not found" });
@@ -132,6 +152,7 @@ export function createAppServer(options: ServerOptions = {}) {
   return {
     server,
     database,
+    credentials,
     runs,
     listen() {
       const port = options.port ?? Number(process.env.PORT || 8787);
@@ -165,7 +186,6 @@ function streamEvents(
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
     "X-Accel-Buffering": "no",
-    "Access-Control-Allow-Origin": "*",
   });
   res.flushHeaders();
 
@@ -197,10 +217,20 @@ async function readJson(req: IncomingMessage): Promise<Record<string, any>> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function setCors(res: ServerResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+function setCors(req: IncomingMessage, res: ServerResponse): boolean {
+  const origin = req.headers.origin;
+  const allowedOrigins = new Set([
+    process.env.PI_AGENT_WEB_ORIGIN || "http://localhost:3001",
+    "http://127.0.0.1:3001",
+  ]);
+  if (origin && !allowedOrigins.has(origin)) return false;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Last-Event-ID");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  return true;
 }
 
 function json(res: ServerResponse, status: number, body: unknown) {
@@ -235,16 +265,21 @@ function browseDirectory(res: ServerResponse, rawDir: string) {
   }
 }
 
-async function testConnection(res: ServerResponse, body: Record<string, any>) {
+async function testConnection(
+  res: ServerResponse,
+  body: Record<string, any>,
+  credentials: CredentialVault,
+) {
   const started = Date.now();
   const base = String(body.baseUrl || "").replace(/\/$/, "");
   const endpoint = /\/(responses|chat\/completions)$/.test(base) ? base : `${base}/chat/completions`;
+  const apiKey = credentials.getApiKey();
   try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {}),
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify({
         model: body.model,

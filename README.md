@@ -21,6 +21,10 @@ DEEPSEEK_API_KEY=sk-xxx
 
 Ollama 使用 `http://localhost:11434/v1`，不需要 API Key。
 
+也可以在设置中输入一次 API Key。后端会使用 AES-256-GCM 加密保存，
+主密钥单独存放在权限为 `0600` 的 `.data/pi-agent.db.key`；后续所有对话自动复用，
+点击“已保存 · 登出”会删除已保存凭据。API Key 不会写入浏览器 localStorage。
+
 ## Workspace
 
 ```text

@@ -8,7 +8,7 @@ import { ChatInput } from "@/components/chat/chat-input";
 import { DirectoryPicker } from "@/components/chat/directory-picker";
 import type { Conversation, Run, RunEvent } from "@/lib/types";
 import { MODELS } from "@/lib/types";
-import { conversationApi, streamRunEvents } from "@/lib/api";
+import { conversationApi, credentialApi, streamRunEvents } from "@/lib/api";
 import { isTerminalRunEvent } from "@pi-agent/contracts";
 
 const SETTINGS_KEY = "agent-chat-ui-settings";
@@ -32,10 +32,14 @@ export default function ChatPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [model, setModel] = useState(MODELS[0].id);
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
+  const [credentialSaving, setCredentialSaving] = useState(false);
+  const [credentialError, setCredentialError] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const subscriptions = useRef(new Map<string, AbortController>());
+  const credentialSave = useRef<Promise<void> | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await conversationApi.list();
@@ -106,7 +110,11 @@ export default function ChatPage() {
     const settings = loadSettings();
     setModel(settings.model);
     setBaseUrl(settings.baseUrl || "");
-    void migrateLegacyData().then(refresh).then((loaded) => {
+    void Promise.all([
+      migrateLegacyData().then(refresh),
+      credentialApi.status().catch(() => ({ configured: false })),
+    ]).then(([loaded, credential]) => {
+      setApiKeyConfigured(credential.configured);
       const urlId = searchParams.get("id");
       const selected = loaded.find((conversation) => conversation.id === urlId) ||
         loaded.find((conversation) => !conversation.archived);
@@ -144,6 +152,7 @@ export default function ChatPage() {
   };
 
   const handleSend = async (content: string) => {
+    await commitApiKey();
     let conversation = activeConversation;
     if (!conversation) {
       conversation = await conversationApi.create({ model, workdir: "" });
@@ -154,7 +163,6 @@ export default function ChatPage() {
     const run = await conversationApi.startRun(conversation.id, {
       content,
       model,
-      apiKey,
       baseUrl: baseUrl || modelInfo?.baseUrl,
       contextLimit: modelInfo?.contextLimit,
       idempotencyKey: crypto.randomUUID(),
@@ -162,6 +170,38 @@ export default function ChatPage() {
     const snapshot = await conversationApi.get(conversation.id);
     setConversations((current) => [snapshot, ...current.filter((item) => item.id !== snapshot.id)]);
     attachRun(conversation.id, snapshot.activeRun || run);
+  };
+
+  const commitApiKey = async () => {
+    if (credentialSave.current) return credentialSave.current;
+    const value = apiKey.trim();
+    if (!value) return;
+    setCredentialSaving(true);
+    const save = credentialApi.save(value)
+      .then(() => {
+        setApiKey("");
+        setApiKeyConfigured(true);
+        setCredentialError("");
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : "保存 API Key 失败";
+        setCredentialError(message);
+        throw error;
+      })
+      .finally(() => {
+        setCredentialSaving(false);
+        credentialSave.current = null;
+      });
+    credentialSave.current = save;
+    return save;
+  };
+
+  const logout = async () => {
+    await credentialSave.current?.catch(() => undefined);
+    await credentialApi.logout();
+    setApiKey("");
+    setApiKeyConfigured(false);
+    setCredentialError("");
   };
 
   const updateConversation = async (id: string, updates: { workdir?: string; archived?: boolean }) => {
@@ -205,6 +245,11 @@ export default function ChatPage() {
           selectedModel={model}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
+          apiKeyConfigured={apiKeyConfigured}
+          credentialSaving={credentialSaving}
+          credentialError={credentialError}
+          onApiKeyCommit={commitApiKey}
+          onLogout={logout}
           baseUrl={baseUrl}
           onBaseUrlChange={setBaseUrl}
           workdir={activeConversation?.workdir || ""}
