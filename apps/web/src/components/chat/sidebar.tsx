@@ -26,7 +26,7 @@ interface SidebarProps {
 
 const FIGMA_ICON = {
   skills: '/figma/icon-new-chat.svg',
-  mcp: '/figma/icon-mcp-connector.svg',
+  mcp: '/figma/icon-mcp.svg',
   newChat: '/figma/icon-skill.svg',
   workspace: '/figma/icon-workspace.svg',
   recent: '/figma/icon-recent.svg',
