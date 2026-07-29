@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Suspense } from 'react';
 import './globals.css';
-import 'highlight.js/styles/github-dark.css';
+import 'highlight.js/styles/github.css';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const viewport: Viewport = {
