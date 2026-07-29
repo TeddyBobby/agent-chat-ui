@@ -1,0 +1,15 @@
+{
+  "name": "@pi-agent/desktop",
+  "version": "0.2.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "build": "echo 'desktop shell uses web and server builds'",
+    "typecheck": "node --check main.cjs",
+    "lint": "node --check main.cjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "next": "16.2.10"
+  }
+}
