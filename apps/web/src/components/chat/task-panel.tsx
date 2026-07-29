@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
+import remarkGfm from 'remark-gfm';
 import {
   workspaceApi,
   type WorkspaceEntry,
@@ -222,18 +225,101 @@ function TreeNodes({ entries, onOpen, depth }: { entries: WorkspaceEntry[]; onOp
 }
 
 function FilePreview({ file, onBack }: { file: WorkspaceFile; onBack: () => void }) {
+  const markdown = file.language === 'markdown';
+  const [view, setView] = useState<'preview' | 'source'>(markdown ? 'preview' : 'source');
+  const [copied, setCopied] = useState(false);
+
+  const copyFile = async () => {
+    await navigator.clipboard.writeText(file.content);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-10 items-center border-b border-[#ededed] px-3">
+      <div className="flex h-10 flex-shrink-0 items-center border-b border-[#ededed] px-3">
         <button type="button" onClick={onBack} className="mr-2 text-[#888]" aria-label="返回文件树">‹</button>
         <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-[#555]">{file.path}</span>
-        <span className="text-[8px] uppercase text-[#aaa]">{file.language}</span>
+        {markdown && (
+          <div className="mr-1 flex rounded-md bg-[#f3f3f2] p-0.5">
+            <PreviewToggle active={view === 'preview'} onClick={() => setView('preview')}>预览</PreviewToggle>
+            <PreviewToggle active={view === 'source'} onClick={() => setView('source')}>源码</PreviewToggle>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => void copyFile()}
+          className="rounded px-1.5 py-1 text-[8px] text-[#999] hover:bg-[#f3f3f2] hover:text-[#555]"
+          aria-label={`复制 ${file.path}`}
+        >
+          {copied ? '已复制' : '复制'}
+        </button>
       </div>
-      <pre className="!m-0 min-h-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#fbfbfb] p-3 text-[10px] leading-5 text-[#555]">
-        <code className="!bg-transparent !p-0 !text-[10px] !text-[#555]">{file.content}</code>
-      </pre>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {markdown && view === 'preview' ? (
+          <MarkdownFile content={file.content} />
+        ) : file.language === 'text' ? (
+          <PlainTextFile content={file.content} />
+        ) : (
+          <CodeFile content={file.content} language={file.language} />
+        )}
+      </div>
     </div>
   );
+}
+
+function PreviewToggle({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded px-1.5 py-0.5 text-[8px] ${active ? 'bg-white text-[#444] shadow-sm' : 'text-[#999]'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MarkdownFile({ content }: { content: string }) {
+  return (
+    <div className="workspace-markdown prose min-h-0 flex-1 overflow-auto px-4 py-3">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function CodeFile({ content, language }: { content: string; language: string }) {
+  return (
+    <div className="workspace-code min-h-0 flex-1 overflow-auto bg-[#0d1117]">
+      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+        {fencedCode(content, language)}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function PlainTextFile({ content }: { content: string }) {
+  return (
+    <pre className="!m-0 min-h-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#fbfbfb] p-3">
+      <code className="!bg-transparent !p-0 !text-[10px] !leading-5 !text-[#555]">{content}</code>
+    </pre>
+  );
+}
+
+function fencedCode(content: string, language: string) {
+  const runs = content.match(/`+/g) || [];
+  const fence = '`'.repeat(Math.max(3, ...runs.map((run) => run.length + 1)));
+  return `${fence}${language}\n${content}\n${fence}`;
 }
 
 function ReviewPreview({

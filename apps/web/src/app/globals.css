@@ -219,6 +219,77 @@ pre code {
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* ── Workspace file preview ── */
+.workspace-markdown {
+  color: #4b5563;
+  font-size: 0.75rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.workspace-markdown h1 {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.35rem;
+  font-size: 1.125rem;
+}
+
+.workspace-markdown h2 {
+  border-bottom: 1px solid #eeeeec;
+  padding-bottom: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.workspace-markdown h3 {
+  font-size: 0.825rem;
+}
+
+.workspace-markdown p,
+.workspace-markdown ul,
+.workspace-markdown ol,
+.workspace-markdown table {
+  font-size: 0.75rem;
+}
+
+.workspace-markdown a {
+  color: #218739;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.workspace-markdown pre {
+  margin: 0.625rem 0 !important;
+  border: 0;
+  background: #0d1117;
+}
+
+.workspace-markdown pre code,
+.workspace-code pre code {
+  background: #0d1117 !important;
+  color: #e6edf3 !important;
+  font-size: 0.6875rem !important;
+  line-height: 1.65 !important;
+  tab-size: 2;
+}
+
+.workspace-code pre {
+  min-width: max-content;
+  margin: 0 !important;
+  border: 0;
+  border-radius: 0 !important;
+  background: #0d1117;
+}
+
+.workspace-code pre code {
+  min-height: 100%;
+  padding: 0.875rem !important;
+}
+
+.workspace-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* ── Selection ── */
 ::selection {
   background: rgba(99, 102, 241, 0.2);
