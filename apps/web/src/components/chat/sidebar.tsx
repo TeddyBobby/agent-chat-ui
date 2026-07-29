@@ -73,10 +73,10 @@ export function Sidebar({
 
   return (
     <aside className="relative h-full w-[284px] flex-shrink-0 overflow-hidden bg-[#f5f5f5] text-[#5e5e5e] transition-[width]">
-      <button type="button" onClick={onHome} className="absolute left-[27px] top-[32px] flex h-[27px] items-center" aria-label="返回欢迎页">
-        <img className="h-[27px] w-[27px]" src="/figma/sidebar-accent.svg" alt="" />
-        <img className="ml-[11px] h-[18px] w-[37px]" src="/figma/logo-mark.svg" alt="MO" />
-        <img className="ml-[3px] h-[21px] w-[58px]" src="/figma/logo-wordmark.svg" alt="Agent" />
+      <button type="button" onClick={onHome} className="absolute left-[27px] top-[32px] h-[27px] w-[136px]" aria-label="返回欢迎页">
+        <img className="absolute left-0 top-0 h-[27px] w-[27px]" src="/figma/sidebar-accent.svg" alt="" />
+        <img className="absolute left-[38px] top-[4px] h-[17.591px] w-[37.117px]" src="/figma/logo-mark.svg" alt="" />
+        <img className="absolute left-[78px] top-[5px] h-[21.15px] w-[57.548px]" src="/figma/logo-wordmark.svg" alt="" />
       </button>
       <button type="button" onClick={() => onCollapsedChange(true)} className="absolute left-[244px] top-[35px]" aria-label="收起侧栏">
         <img className="h-5 w-5" src="/figma/icon-sidebar-toggle.svg" alt="" />
@@ -177,18 +177,17 @@ export function Sidebar({
         />
       )}
 
-      <div className="absolute left-[30px] top-[73%] flex h-[30px] items-center">
+      <button
+        type="button"
+        onClick={() => apiKeyConfigured ? void onLogout() : undefined}
+        disabled={!apiKeyConfigured}
+        className="absolute bottom-[32px] left-[30px] right-[20px] flex h-[30px] items-center text-[#5e5e5e] disabled:cursor-default"
+        title={apiKeyConfigured ? '登出并删除已保存的 API Key' : '尚未保存 API Key'}
+      >
         <img className="h-[30px] w-[30px]" src="/figma/avatar.svg" alt="" />
-        <button
-          type="button"
-          onClick={() => apiKeyConfigured ? void onLogout() : undefined}
-          className="ml-[10px] text-[14px] font-medium text-[#5e5e5e]"
-          title={apiKeyConfigured ? '登出并删除已保存的 API Key' : '尚未保存 API Key'}
-        >
-          登出
-        </button>
-      </div>
-      <img className="absolute left-[244px] top-[73%] mt-[6px] h-[18px] w-[18px]" src="/figma/icon-logout.svg" alt="" />
+        <span className="ml-[10px] text-[14px] font-medium">登出</span>
+        <img className="ml-auto h-[18px] w-[18px]" src="/figma/icon-logout.svg" alt="" />
+      </button>
     </aside>
   );
 }
