@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Message } from '@/lib/types';
 import { ToolCallCard } from './tool-call-card';
+import { AgentMark } from './agent-mark';
 
 // ── Code block copy ──
 
@@ -174,13 +175,13 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const hasMarkdown = cleanContent.length > 0;
 
   return (
-    <div className={`py-4 px-8 animate-fade-in-up ${isUser ? '' : 'bg-gray-50 dark:bg-zinc-900/30'}`}>
-      <div className="flex gap-3.5">
+    <div className={`px-8 py-4 animate-fade-in-up ${isUser ? '' : 'bg-[#fafaf8] dark:bg-zinc-900/30'}`}>
+      <div className="mx-auto flex max-w-[780px] gap-3.5">
         {/* Avatar */}
         <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
           isUser
             ? 'bg-gray-200 dark:bg-zinc-700 text-gray-500 dark:text-zinc-300'
-            : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-500 dark:text-indigo-300'
+            : 'bg-[#eaf8e8] text-[#4ca148] dark:bg-emerald-500/20 dark:text-emerald-300'
         }`}>
           {isUser ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -188,25 +189,21 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
               <circle cx="12" cy="7" r="4"/>
             </svg>
           ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5"/>
-              <path d="M2 12l10 5 10-5"/>
-            </svg>
+            <AgentMark className="h-5 w-5" compact />
           )}
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="text-[11px] font-medium text-gray-400 dark:text-zinc-500 mb-1 tracking-wide">
-            {isUser ? '你' : '{{Pi}}Agent'}
+            {isUser ? '你' : 'MOAgent'}
           </div>
 
           {/* Agent status */}
           {!isUser && streaming && totalTools > 0 && (
             <div className="mb-2 flex items-center gap-2">
-              <span className="w-3 h-3 border-2 border-indigo-400/60 border-t-indigo-400 rounded-full animate-spin flex-shrink-0" />
-              <span className="text-[12px] text-indigo-500 dark:text-indigo-400/80 font-medium">
+              <span className="h-3 w-3 flex-shrink-0 animate-spin rounded-full border-2 border-[#65d45e]/40 border-t-[#65d45e]" />
+              <span className="text-[12px] font-medium text-[#55a451] dark:text-emerald-400/80">
                 {(() => {
                   const running = message.toolCalls?.find(tc => tc.status === 'running');
                   if (running) {
@@ -281,7 +278,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-500 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+                      className="text-[#4b9f48] underline underline-offset-2 transition-colors hover:text-[#397e36] dark:text-emerald-400 dark:hover:text-emerald-300"
                     >
                       {children}
                     </a>
@@ -315,18 +312,18 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
           ) : !files.length && totalTools > 0 && completedTools === 0 ? (
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.15s' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.3s' }} />
               </div>
               <span className="text-[12px] text-gray-400 dark:text-zinc-500">Working...</span>
             </div>
           ) : streaming && !hasMarkdown && totalTools === 0 ? (
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.15s' }} />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.3s' }} />
               </div>
               <span className="text-[12px] text-gray-400 dark:text-zinc-500">Thinking...</span>
             </div>

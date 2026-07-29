@@ -7,19 +7,19 @@ interface ThemeContextType {
   toggle: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ dark: true, toggle: () => {} });
+const ThemeContext = createContext<ThemeContextType>({ dark: false, toggle: () => {} });
 
 export function useTheme() {
   return useContext(ThemeContext);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('agent-chat-ui-theme');
-    const isDark = stored === null ? true : stored === 'dark';
+    const isDark = stored === 'dark';
     setDark(isDark);
     document.documentElement.classList.toggle('dark', isDark);
     setHydrated(true);
@@ -34,7 +34,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   if (!hydrated) {
     // Prevent flash: render nothing until theme is loaded
-    return <div className="min-h-screen bg-zinc-950" />;
+    return <div className="min-h-screen bg-[#f7f7f5]" />;
   }
 
   return (

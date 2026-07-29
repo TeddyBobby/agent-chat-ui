@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/chat/sidebar";
 import { MessageList } from "@/components/chat/message-list";
 import { ChatInput } from "@/components/chat/chat-input";
 import { DirectoryPicker } from "@/components/chat/directory-picker";
+import { WelcomeDashboard } from "@/components/chat/welcome-dashboard";
+import { TaskPanel } from "@/components/chat/task-panel";
 import type { Conversation, Run, RunEvent } from "@/lib/types";
 import { MODELS } from "@/lib/types";
 import { conversationApi, credentialApi, streamRunEvents } from "@/lib/api";
@@ -215,18 +217,20 @@ export default function ChatPage() {
     setConversations((current) => current.map((conversation) => conversation.id === id ? updated : conversation));
   };
 
+  const selectConversation = (id: string) => {
+    setActiveId(id);
+    router.replace(conversationUrl(id), { scroll: false });
+    const selected = conversations.find((conversation) => conversation.id === id);
+    if (selected) setModel(selected.model);
+  };
+
   return (
-    <div className="flex h-screen bg-white dark:bg-zinc-950 text-gray-900 dark:text-zinc-200">
+    <div className="flex h-screen overflow-hidden bg-white text-[#292929] dark:bg-zinc-950 dark:text-zinc-200">
       <Sidebar
         conversations={conversations}
         activeId={activeId}
         runningConvIds={runningIds}
-        onSelect={(id) => {
-          setActiveId(id);
-          router.replace(conversationUrl(id), { scroll: false });
-          const selected = conversations.find((conversation) => conversation.id === id);
-          if (selected) setModel(selected.model);
-        }}
+        onSelect={selectConversation}
         onArchive={(id) => void updateConversation(id, { archived: true }).then(() => activeId === id && setActiveId(null))}
         onRestore={(id) => void updateConversation(id, { archived: false })}
         onDelete={(id) => void conversationApi.delete(id).then(() => {
@@ -234,17 +238,28 @@ export default function ChatPage() {
           if (activeId === id) setActiveId(null);
         })}
         onNewChat={() => setShowPicker(true)}
+        onLogout={logout}
+        apiKeyConfigured={apiKeyConfigured}
       />
-      <div className="flex-1 flex flex-col min-w-0">
+      <main className="flex min-w-0 flex-1 flex-col bg-[#fdfdfc] dark:bg-zinc-950">
         {activeConversation?.workdir && (
-          <div className="px-8 py-1.5 bg-indigo-500/5 border-b border-indigo-500/10">
-            <span className="text-[11px] text-indigo-500 font-mono tracking-wide">{activeConversation.workdir}</span>
+          <div className="flex h-10 items-center border-b border-[#eeeeeb] px-7 dark:border-zinc-800">
+            <span className="truncate rounded-full bg-[#f3f3f0] px-3 py-1 text-[9px] text-[#7b7b76] dark:bg-zinc-900 dark:text-zinc-500">
+              {activeConversation.workdir}
+            </span>
           </div>
         )}
-        <MessageList
-          messages={activeConversation?.messages || []}
-          streaming={Boolean(activeConversation?.activeRun)}
-        />
+        {(activeConversation?.messages.length || 0) > 0 ? (
+          <MessageList
+            messages={activeConversation?.messages || []}
+            streaming={Boolean(activeConversation?.activeRun)}
+          />
+        ) : (
+          <WelcomeDashboard
+            onNewChat={() => setShowPicker(true)}
+            onFocusInput={() => document.getElementById("agent-chat-composer")?.focus()}
+          />
+        )}
         <ChatInput
           onSend={(content) => void handleSend(content)}
           onModelChange={setModel}
@@ -264,7 +279,8 @@ export default function ChatPage() {
           contextTokens={activeConversation?.contextTokens ?? 0}
           contextLimit={MODELS.find((entry) => entry.id === activeConversation?.model)?.contextLimit ?? 128_000}
         />
-      </div>
+      </main>
+      <TaskPanel conversations={conversations} activeId={activeId} onSelect={selectConversation} />
       <DirectoryPicker
         value=""
         open={showPicker}

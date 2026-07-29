@@ -131,11 +131,11 @@ export function ChatInput({
   const fmt = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n);
 
   return (
-    <div className="px-8 pb-4 pt-2">
-      <div>
+    <div className="px-6 pb-6 pt-2">
+      <div className="mx-auto w-full max-w-[736px]">
         {/* Settings bar */}
         {showSettings && (
-          <div className="mb-3 p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 animate-fade-in-up">
+          <div className="mb-3 rounded-[18px] border border-[#e7e7e3] bg-white p-4 shadow-[0_12px_32px_rgba(0,0,0,0.06)] dark:border-zinc-700 dark:bg-zinc-900 animate-fade-in-up">
             <div className="grid grid-cols-2 gap-2.5">
               <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 模型
@@ -282,8 +282,8 @@ export function ChatInput({
           </div>
         )}
 
-        {/* Input row */}
-        <div className="flex gap-2 items-end bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 focus-within:border-indigo-500/30 focus-within:shadow-lg focus-within:shadow-indigo-500/5 transition-all px-4 py-2.5">
+        {/* Composer */}
+        <div className="rounded-[20px] border border-[#ddddda] bg-white px-4 pb-3 pt-4 shadow-[0_8px_30px_rgba(30,30,30,0.05)] transition-all focus-within:border-[#bfcfbc] focus-within:shadow-[0_10px_34px_rgba(76,139,71,0.09)] dark:border-zinc-700 dark:bg-zinc-900">
           <input
             ref={fileInputRef}
             type="file"
@@ -292,65 +292,67 @@ export function ChatInput({
             className="hidden"
             accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.css,.html,.py,.yaml,.yml,.toml,.xml,.csv,.env,.gitignore,.sh,.bash,.zsh,.sql,.graphql,.prisma,.rs,.go,.java,.c,.cpp,.h,.rb,.php,.swift,.kt,.dart,.vue,.svelte,.cfg,.conf,.ini,.log"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
-            className="p-1.5 rounded-lg text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 disabled:opacity-20 transition-colors flex-shrink-0"
-            title="添加文件"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-            </svg>
-          </button>
-
           <textarea
             ref={textareaRef}
+            id="agent-chat-composer"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={workdir ? `${workdir.split('/').pop()} 项目中...` : '告诉 {{Pi}}Agent 做什么...'}
+            placeholder={workdir ? `${workdir.split('/').pop()} 项目中，输入消息，@引用文件，$引用 Skills...` : '输入消息，@引用文件，$引用 Skills，描述你想完成的任务...'}
             disabled={disabled}
-            rows={1}
-            className="flex-1 resize-none bg-transparent px-1 py-1 text-[15px] leading-relaxed focus:outline-none disabled:opacity-40 placeholder-gray-400 dark:placeholder-zinc-600 text-gray-800 dark:text-zinc-200"
+            rows={3}
+            className="block min-h-[76px] w-full resize-none bg-transparent px-1 text-[13px] leading-relaxed text-[#33332f] placeholder-[#a9a9a4] focus:outline-none disabled:opacity-40 dark:text-zinc-200 dark:placeholder-zinc-600"
           />
 
-          <div className="flex items-center gap-1.5">
+          <div className="mt-2 flex items-center gap-2">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`text-[11px] px-2 py-1 rounded-md font-medium transition-all flex-shrink-0 ${
+              className={`flex h-8 items-center gap-2 rounded-full px-3 text-[10px] font-medium transition-all flex-shrink-0 ${
                 showSettings
-                  ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20'
-                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-300 border border-transparent hover:border-gray-300 dark:hover:border-zinc-700'
+                  ? 'bg-[#eaf8e8] text-[#438b40] dark:bg-emerald-500/10 dark:text-emerald-300'
+                  : 'bg-[#f4f4f1] text-[#565650] hover:bg-[#ebebe7] dark:bg-zinc-800 dark:text-zinc-400'
               }`}
             >
               {selectedModelInfo?.name || selectedModel}
+              <span className="text-[#aaa9a4]">⌄</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#f4f4f1] text-[#777771] transition-colors hover:bg-[#ebebe7] disabled:opacity-20 dark:bg-zinc-800 dark:text-zinc-400"
+              title="添加文件"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
             </button>
             {baseUrl && (
               <span
                 onClick={() => setShowSettings(!showSettings)}
-                className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 font-medium cursor-pointer flex-shrink-0 max-w-[120px] truncate"
+                className="max-w-[120px] cursor-pointer truncate rounded-full bg-[#eff8ee] px-2 py-1 text-[9px] font-medium text-[#579653] dark:bg-emerald-500/10 dark:text-emerald-300"
                 title={`代理: ${baseUrl}`}
               >
-                🔗 {extractDomain(baseUrl)}
+                {extractDomain(baseUrl)}
               </span>
             )}
 
             <button
               onClick={handleSubmit}
               disabled={disabled || (!input.trim() && files.length === 0)}
-              className="p-1.5 rounded-lg text-gray-400 dark:text-zinc-500 hover:text-gray-700 dark:hover:text-zinc-200 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-[#202020] text-white transition-all hover:bg-[#65d45e] hover:text-[#183a16] disabled:cursor-not-allowed disabled:bg-[#f0f0ed] disabled:text-[#c7c7c2] dark:disabled:bg-zinc-800"
+              title="发送"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 19V5" />
+                <path d="m6 11 6-6 6 6" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Hint */}
-        <p className="text-[11px] text-gray-400 dark:text-zinc-600 text-center mt-2">
-          回车发送 · Shift+回车换行 · 📎 添加文件
+        <p className="mt-2 text-center text-[9px] text-[#b3b3ae] dark:text-zinc-600">
+          回车发送 · Shift + 回车换行 · 任务会在后台持续运行
         </p>
       </div>
     </div>
