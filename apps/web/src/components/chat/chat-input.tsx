@@ -25,6 +25,7 @@ interface ChatInputProps {
   contextTokens?: number;
   contextLimit?: number;
   figmaPlacement?: boolean;
+  draft?: { id: number; content: string };
 }
 
 interface AttachedFile {
@@ -37,6 +38,7 @@ export function ChatInput({
   onSend, onModelChange, selectedModel, apiKey, onApiKeyChange,
   apiKeyConfigured, credentialSaving, credentialError, onApiKeyCommit, onLogout, baseUrl, onBaseUrlChange,
   workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000, figmaPlacement = false,
+  draft,
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -81,6 +83,14 @@ export function ChatInput({
       ) + 'px';
     }
   }, [input, figmaPlacement]);
+
+  useEffect(() => {
+    if (!draft) return;
+    // A sidebar/welcome shortcut intentionally synchronizes its prompt into the composer.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInput(draft.content);
+    textareaRef.current?.focus();
+  }, [draft]);
 
   const handleSubmit = () => {
     const hasContent = input.trim() || files.length > 0;
@@ -294,6 +304,7 @@ export function ChatInput({
         <div className={`rounded-[22px] border border-[#cacaca] bg-white px-[10px] pb-[10px] pt-[13px] shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-all focus-within:border-[#a8a8a8] dark:border-zinc-700 dark:bg-zinc-900 ${figmaPlacement ? 'h-[160px]' : ''}`}>
           <input
             ref={fileInputRef}
+            id="agent-chat-file-input"
             type="file"
             multiple
             onChange={handleFilePick}

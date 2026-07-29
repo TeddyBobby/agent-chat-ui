@@ -70,6 +70,41 @@ export const credentialApi = {
     request<{ configured: boolean }>("/v1/logout", { method: "POST" }),
 };
 
+export interface WorkspaceEntry {
+  name: string;
+  path: string;
+  type: "directory" | "file";
+  children?: WorkspaceEntry[];
+}
+
+export interface WorkspaceFile {
+  path: string;
+  content: string;
+  language: string;
+  size: number;
+}
+
+export interface WorkspaceReview {
+  root: string;
+  isGitRepository: boolean;
+  files: Array<{ path: string; status: string }>;
+  patch: string;
+  patchTruncated?: boolean;
+}
+
+export const workspaceApi = {
+  tree: (path: string) =>
+    request<{ root: string; entries: WorkspaceEntry[]; truncated: boolean }>(
+      `/v1/workspace/tree?path=${encodeURIComponent(path)}`,
+    ),
+  file: (root: string, path: string) =>
+    request<WorkspaceFile>(
+      `/v1/workspace/file?root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`,
+    ),
+  review: (path: string) =>
+    request<WorkspaceReview>(`/v1/workspace/review?path=${encodeURIComponent(path)}`),
+};
+
 export async function streamRunEvents(input: {
   runId: string;
   after: number;

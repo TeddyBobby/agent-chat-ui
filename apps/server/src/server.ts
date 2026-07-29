@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { isActiveRun, isTerminalRunEvent, type StartRunRequest } from "@pi-agent/contracts";
 import type { Conversation } from "@pi-agent/contracts";
 import { AppDatabase } from "./database.js";
@@ -139,6 +140,19 @@ export function createAppServer(options: ServerOptions = {}) {
       if (req.method === "GET" && url.pathname === "/v1/fs") {
         return browseDirectory(res, url.searchParams.get("path") || process.env.HOME || "/Users");
       }
+      if (req.method === "GET" && url.pathname === "/v1/workspace/tree") {
+        return workspaceTree(res, url.searchParams.get("path") || "");
+      }
+      if (req.method === "GET" && url.pathname === "/v1/workspace/file") {
+        return workspaceFile(
+          res,
+          url.searchParams.get("root") || "",
+          url.searchParams.get("path") || "",
+        );
+      }
+      if (req.method === "GET" && url.pathname === "/v1/workspace/review") {
+        return workspaceReview(res, url.searchParams.get("path") || "");
+      }
 
       if (req.method === "POST" && url.pathname === "/v1/test-connection") {
         const body = await readJson(req);
@@ -272,6 +286,186 @@ function browseDirectory(res: ServerResponse, rawDir: string) {
   } catch {
     return json(res, 404, { error: "无法读取目录" });
   }
+}
+
+interface WorkspaceEntry {
+  name: string;
+  path: string;
+  type: "directory" | "file";
+  children?: WorkspaceEntry[];
+}
+
+const WORKSPACE_IGNORES = new Set([
+  ".git", ".next", ".turbo", "node_modules", "dist", "build", "coverage",
+  "generated", "out", "release",
+]);
+const MAX_WORKSPACE_ENTRIES = 500;
+const MAX_FILE_BYTES = 1024 * 1024;
+
+function workspaceTree(res: ServerResponse, rawDir: string) {
+  if (!rawDir) return json(res, 400, { error: "path is required" });
+  try {
+    const root = realpathSync(resolve(rawDir.replace(/^~/, process.env.HOME || "/Users")));
+    if (!statSync(root).isDirectory()) return json(res, 400, { error: "path must be a directory" });
+    let seen = 0;
+    let truncated = false;
+    const visit = (dir: string, depth: number): WorkspaceEntry[] => {
+      if (depth > 4 || seen >= MAX_WORKSPACE_ENTRIES) {
+        truncated = true;
+        return [];
+      }
+      return readdirSync(dir, { withFileTypes: true })
+        .filter((entry) => !entry.name.startsWith(".") && !WORKSPACE_IGNORES.has(entry.name))
+        .sort((a, b) => {
+          if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        })
+        .flatMap<WorkspaceEntry>((entry) => {
+          if (seen++ >= MAX_WORKSPACE_ENTRIES) {
+            truncated = true;
+            return [];
+          }
+          const absolutePath = join(dir, entry.name);
+          const path = relative(root, absolutePath);
+          if (entry.isDirectory()) {
+            return [{
+              name: entry.name,
+              path,
+              type: "directory" as const,
+              children: visit(absolutePath, depth + 1),
+            }];
+          }
+          if (!entry.isFile()) return [];
+          return [{ name: entry.name, path, type: "file" as const }];
+        });
+    };
+    const entries = visit(root, 0);
+    return json(res, 200, { root, entries, truncated });
+  } catch {
+    return json(res, 404, { error: "无法读取工作目录" });
+  }
+}
+
+function workspaceFile(res: ServerResponse, rawRoot: string, requestedPath: string) {
+  if (!rawRoot || !requestedPath) return json(res, 400, { error: "root and path are required" });
+  try {
+    const root = realpathSync(resolve(rawRoot.replace(/^~/, process.env.HOME || "/Users")));
+    const unresolved = resolve(root, requestedPath);
+    if (unresolved !== root && !unresolved.startsWith(`${root}${sep}`)) {
+      return json(res, 403, { error: "文件不在工作目录内" });
+    }
+    const candidate = realpathSync(unresolved);
+    if (candidate !== root && !candidate.startsWith(`${root}${sep}`)) {
+      return json(res, 403, { error: "文件不在工作目录内" });
+    }
+    const stat = statSync(candidate);
+    if (!stat.isFile()) return json(res, 400, { error: "path must be a file" });
+    if (stat.size > MAX_FILE_BYTES) return json(res, 413, { error: "文件超过 1MB，无法预览" });
+    const content = readFileSync(candidate, "utf8");
+    if (content.includes("\0")) return json(res, 415, { error: "暂不支持二进制文件预览" });
+    return json(res, 200, {
+      path: relative(root, candidate),
+      content,
+      language: languageForFile(candidate),
+      size: stat.size,
+    });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return json(res, 404, { error: "文件不存在" });
+    }
+    return json(res, 403, { error: "无法读取文件" });
+  }
+}
+
+function workspaceReview(res: ServerResponse, rawDir: string) {
+  if (!rawDir) return json(res, 400, { error: "path is required" });
+  try {
+    const root = realpathSync(resolve(rawDir.replace(/^~/, process.env.HOME || "/Users")));
+    const git = (args: string[]) => execFileSync("git", ["-C", root, ...args], {
+      encoding: "utf8",
+      maxBuffer: 2 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const patchLimit = 2 * 1024 * 1024;
+    let patchBytes = 0;
+    let patchTruncated = false;
+    const patchParts: string[] = [];
+    const appendPatch = (part: string) => {
+      if (!part || patchTruncated) return;
+      const remaining = patchLimit - patchBytes;
+      const buffer = Buffer.from(part);
+      if (buffer.byteLength > remaining) {
+        patchParts.push(buffer.subarray(0, remaining).toString("utf8"));
+        patchTruncated = true;
+        return;
+      }
+      patchParts.push(part);
+      patchBytes += buffer.byteLength;
+    };
+    const gitPatch = (args: string[]) => {
+      try {
+        return {
+          output: execFileSync("git", ["-C", root, ...args], {
+            encoding: "utf8",
+            maxBuffer: patchLimit + 1,
+            stdio: ["ignore", "pipe", "pipe"],
+          }),
+          truncated: false,
+        };
+      } catch (error) {
+        if (error && typeof error === "object" && "stdout" in error) {
+          return {
+            output: String(error.stdout || ""),
+            truncated: "code" in error && error.code === "ENOBUFS",
+          };
+        }
+        throw error;
+      }
+    };
+    try {
+      git(["rev-parse", "--is-inside-work-tree"]);
+    } catch {
+      return json(res, 200, { root, isGitRepository: false, files: [], patch: "" });
+    }
+    const status = git(["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+    const statusRecords = status.split("\0").filter(Boolean);
+    const files: Array<{ status: string; path: string }> = [];
+    for (let index = 0; index < statusRecords.length; index += 1) {
+      const record = statusRecords[index];
+      const fileStatus = record.slice(0, 2).trim() || "?";
+      files.push({ status: fileStatus, path: record.slice(3) });
+      if (/[RC]/.test(fileStatus)) index += 1;
+    }
+    for (const args of [
+      ["diff", "--no-ext-diff", "--unified=3"],
+      ["diff", "--cached", "--no-ext-diff", "--unified=3"],
+    ]) {
+      const result = gitPatch(args);
+      appendPatch(result.output);
+      patchTruncated ||= result.truncated;
+      if (patchTruncated) break;
+    }
+    for (const file of files.filter((entry) => entry.status === "??")) {
+      if (patchTruncated) break;
+      const result = gitPatch(["diff", "--no-index", "--", "/dev/null", file.path]);
+      appendPatch(result.output);
+      patchTruncated ||= result.truncated;
+    }
+    const patch = patchParts.filter(Boolean).join("\n");
+    return json(res, 200, { root, isGitRepository: true, files, patch, patchTruncated });
+  } catch {
+    return json(res, 404, { error: "无法审查工作目录" });
+  }
+}
+
+function languageForFile(path: string) {
+  const languages: Record<string, string> = {
+    ".ts": "typescript", ".tsx": "tsx", ".js": "javascript", ".jsx": "jsx",
+    ".json": "json", ".md": "markdown", ".css": "css", ".html": "html",
+    ".py": "python", ".go": "go", ".rs": "rust", ".java": "java",
+    ".yml": "yaml", ".yaml": "yaml", ".sh": "shell", ".sql": "sql",
+  };
+  return languages[extname(path).toLowerCase()] || "text";
 }
 
 async function testConnection(

@@ -39,7 +39,9 @@ export default function ChatPage() {
   const [credentialError, setCredentialError] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [hydrated, setHydrated] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
+  const [pickerPurpose, setPickerPurpose] = useState<"new" | "workspace" | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [composerDraft, setComposerDraft] = useState<{ id: number; content: string }>();
   const subscriptions = useRef(new Map<string, AbortController>());
   const credentialSave = useRef<Promise<void> | null>(null);
 
@@ -47,6 +49,13 @@ export default function ChatPage() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("id", id);
     return `/chat?${params.toString()}`;
+  };
+
+  const welcomeUrl = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("id");
+    const query = params.toString();
+    return query ? `/chat?${query}` : "/chat";
   };
 
   const refresh = useCallback(async () => {
@@ -124,12 +133,16 @@ export default function ChatPage() {
     ]).then(([loaded, credential]) => {
       setApiKeyConfigured(credential.configured);
       const urlId = searchParams.get("id");
-      const selected = loaded.find((conversation) => conversation.id === urlId) ||
-        loaded.find((conversation) => !conversation.archived);
+      const selected = urlId
+        ? loaded.find((conversation) => conversation.id === urlId)
+        : undefined;
       if (selected) {
         setActiveId(selected.id);
         setModel(selected.model);
         router.replace(conversationUrl(selected.id), { scroll: false });
+      } else if (urlId) {
+        setActiveId(null);
+        router.replace(welcomeUrl(), { scroll: false });
       }
       for (const conversation of loaded) {
         if (conversation.activeRun) attachRun(conversation.id, conversation.activeRun);
@@ -224,6 +237,15 @@ export default function ChatPage() {
     if (selected) setModel(selected.model);
   };
 
+  const showWelcome = () => {
+    setActiveId(null);
+    router.replace(welcomeUrl(), { scroll: false });
+  };
+
+  const queuePrompt = (content: string) => {
+    setComposerDraft({ id: Date.now(), content });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-white text-[#292929] dark:bg-zinc-950 dark:text-zinc-200">
       <Sidebar
@@ -231,17 +253,25 @@ export default function ChatPage() {
         activeId={activeId}
         runningConvIds={runningIds}
         onSelect={selectConversation}
-        onArchive={(id) => void updateConversation(id, { archived: true }).then(() => activeId === id && setActiveId(null))}
+        onArchive={(id) => void updateConversation(id, { archived: true }).then(() => activeId === id && showWelcome())}
         onRestore={(id) => void updateConversation(id, { archived: false })}
         onDelete={(id) => void conversationApi.delete(id).then(() => {
           setConversations((current) => current.filter((conversation) => conversation.id !== id));
-          if (activeId === id) setActiveId(null);
+          if (activeId === id) showWelcome();
         })}
-        onNewChat={() => setShowPicker(true)}
+        onNewChat={() => setPickerPurpose("new")}
         onLogout={logout}
         apiKeyConfigured={apiKeyConfigured}
+        workdir={activeConversation?.workdir || ""}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        onHome={showWelcome}
+        onChooseWorkspace={() => setPickerPurpose("workspace")}
+        onUsePrompt={queuePrompt}
       />
-      <main className="relative flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950 min-[1440px]:w-[836px] min-[1440px]:flex-none">
+      <main className={`relative flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950 ${
+        sidebarCollapsed ? "" : "min-[1440px]:w-[836px] min-[1440px]:flex-none"
+      }`}>
         {(activeConversation?.messages.length || 0) > 0 ? (
           <MessageList
             messages={activeConversation?.messages || []}
@@ -249,8 +279,10 @@ export default function ChatPage() {
           />
         ) : (
           <WelcomeDashboard
-            onNewChat={() => setShowPicker(true)}
+            onNewChat={() => setPickerPurpose("new")}
             onFocusInput={() => document.getElementById("agent-chat-composer")?.focus()}
+            onCreativeImage={() => queuePrompt("请帮我把下面的想法整理成专业、可直接用于图像生成模型的提示词。请补充构图、光线、色彩、镜头和风格：")}
+            onAttachFile={() => document.getElementById("agent-chat-file-input")?.click()}
           />
         )}
         <ChatInput
@@ -272,17 +304,29 @@ export default function ChatPage() {
           contextTokens={activeConversation?.contextTokens ?? 0}
           contextLimit={MODELS.find((entry) => entry.id === activeConversation?.model)?.contextLimit ?? 128_000}
           figmaPlacement={(activeConversation?.messages.length || 0) === 0}
+          draft={composerDraft}
         />
       </main>
-      <TaskPanel />
+      <TaskPanel
+        workdir={activeConversation?.workdir || ""}
+        onRequestReview={() => void handleSend(
+          "请审查当前工作目录中的未提交代码改动。请重点检查正确性、安全性、回归风险和测试覆盖，并按严重程度列出发现，注明文件路径和位置。",
+        )}
+        reviewDisabled={Boolean(activeConversation?.activeRun)}
+      />
       <DirectoryPicker
         value=""
-        open={showPicker}
+        open={pickerPurpose !== null}
         onChange={(workdir) => {
-          setShowPicker(false);
-          void createConversation(workdir);
+          const purpose = pickerPurpose;
+          setPickerPurpose(null);
+          if (purpose === "workspace" && activeId) {
+            void updateConversation(activeId, { workdir });
+          } else {
+            void createConversation(workdir);
+          }
         }}
-        onClose={() => setShowPicker(false)}
+        onClose={() => setPickerPurpose(null)}
       />
     </div>
   );

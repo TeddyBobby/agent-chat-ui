@@ -1,7 +1,8 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- Figma exports must render at their exact intrinsic geometry. */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { API_URL, workspaceApi } from '@/lib/api';
 import type { Conversation } from '@/lib/types';
 
 interface SidebarProps {
@@ -15,6 +16,12 @@ interface SidebarProps {
   onNewChat: () => void;
   onLogout: () => Promise<void>;
   apiKeyConfigured: boolean;
+  workdir: string;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+  onHome: () => void;
+  onChooseWorkspace: () => void;
+  onUsePrompt: (prompt: string) => void;
 }
 
 const FIGMA_ICON = {
@@ -27,28 +34,60 @@ const FIGMA_ICON = {
 
 export function Sidebar({
   conversations, activeId, runningConvIds, onSelect, onArchive, onRestore, onDelete,
-  onNewChat, onLogout, apiKeyConfigured,
+  onNewChat, onLogout, apiKeyConfigured, workdir, collapsed, onCollapsedChange,
+  onHome, onChooseWorkspace,
+  onUsePrompt,
 }: SidebarProps) {
   const [section, setSection] = useState<'none' | 'recent' | 'archived'>('none');
+  const [utility, setUtility] = useState<'skills' | 'mcp' | 'workspace' | null>(null);
   const activeConversations = conversations.filter((conversation) => !conversation.archived);
   const archivedConversations = conversations.filter((conversation) => conversation.archived);
   const visibleConversations = section === 'archived' ? archivedConversations : activeConversations;
 
+  if (collapsed) {
+    return (
+      <aside className="relative h-full w-[68px] flex-shrink-0 bg-[#f5f5f5] transition-[width]">
+        <button type="button" onClick={onHome} className="absolute left-[20px] top-[32px]" aria-label="返回欢迎页">
+          <img className="h-[27px] w-[27px]" src="/figma/sidebar-accent.svg" alt="" />
+        </button>
+        <button type="button" onClick={() => onCollapsedChange(false)} className="absolute left-[24px] top-[76px]" aria-label="展开侧栏">
+          <img className="h-5 w-5 rotate-180" src="/figma/icon-sidebar-toggle.svg" alt="" />
+        </button>
+        <div className="absolute left-[13px] top-[116px] flex w-[42px] flex-col items-center gap-2 rounded-[14px] bg-white py-2">
+          <CompactButton icon={FIGMA_ICON.skills} label="Skills" onClick={() => {
+            setUtility('skills');
+            onCollapsedChange(false);
+          }} />
+          <CompactButton icon={FIGMA_ICON.mcp} label="MCP" onClick={() => {
+            setUtility('mcp');
+            onCollapsedChange(false);
+          }} />
+          <CompactButton icon={FIGMA_ICON.newChat} label="新对话" onClick={onNewChat} />
+        </div>
+        <button type="button" onClick={() => apiKeyConfigured ? void onLogout() : undefined} className="absolute bottom-[32px] left-[19px]" aria-label="登出">
+          <img className="h-[30px] w-[30px]" src="/figma/avatar.svg" alt="" />
+        </button>
+      </aside>
+    );
+  }
+
   return (
-    <aside className="relative h-full w-[284px] flex-shrink-0 overflow-hidden bg-[#f5f5f5] text-[#5e5e5e]">
-      <div className="absolute left-[27px] top-[32px] flex h-[27px] items-center">
+    <aside className="relative h-full w-[284px] flex-shrink-0 overflow-hidden bg-[#f5f5f5] text-[#5e5e5e] transition-[width]">
+      <button type="button" onClick={onHome} className="absolute left-[27px] top-[32px] flex h-[27px] items-center" aria-label="返回欢迎页">
         <img className="h-[27px] w-[27px]" src="/figma/sidebar-accent.svg" alt="" />
         <img className="ml-[11px] h-[18px] w-[37px]" src="/figma/logo-mark.svg" alt="MO" />
         <img className="ml-[3px] h-[21px] w-[58px]" src="/figma/logo-wordmark.svg" alt="Agent" />
-      </div>
-      <img className="absolute left-[244px] top-[35px] h-5 w-5" src="/figma/icon-sidebar-toggle.svg" alt="" />
+      </button>
+      <button type="button" onClick={() => onCollapsedChange(true)} className="absolute left-[244px] top-[35px]" aria-label="收起侧栏">
+        <img className="h-5 w-5" src="/figma/icon-sidebar-toggle.svg" alt="" />
+      </button>
 
       <nav className="absolute left-[27px] top-[108px] h-[172px] w-[237px] rounded-[16px] bg-white px-[25px] py-[10px]">
-        <button type="button" disabled title="Skills 管理即将开放" className="flex h-[47px] w-full cursor-not-allowed items-center gap-[14px] text-[16px] font-medium opacity-70">
+        <button type="button" onClick={() => setUtility((current) => current === 'skills' ? null : 'skills')} className="flex h-[47px] w-full items-center gap-[14px] text-[16px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.skills} alt="" />
           Skills
         </button>
-        <button type="button" disabled title="MCP 管理即将开放" className="flex h-[47px] w-full cursor-not-allowed items-center gap-[14px] text-[16px] font-medium opacity-70">
+        <button type="button" onClick={() => setUtility((current) => current === 'mcp' ? null : 'mcp')} className="flex h-[47px] w-full items-center gap-[14px] text-[16px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.mcp} alt="" />
           MCP
         </button>
@@ -59,7 +98,7 @@ export function Sidebar({
       </nav>
 
       <div className="absolute left-[53px] right-[30px] top-[316px]">
-        <button type="button" className="flex h-[47px] w-full items-center text-[14px] text-[#848383]">
+        <button type="button" onClick={() => setUtility((current) => current === 'workspace' ? null : 'workspace')} className="flex h-[47px] w-full items-center text-[14px] text-[#848383]">
           <img className="mr-[13px] h-[14px] w-[14px]" src={FIGMA_ICON.workspace} alt="" />
           工作空间
           <img className="ml-[13px] h-[5px] w-[9px] -rotate-90" src="/figma/caret-down.svg" alt="" />
@@ -127,6 +166,17 @@ export function Sidebar({
         )}
       </div>
 
+      {utility && (
+        <UtilityPanel
+          key={`${utility}-${workdir}`}
+          mode={utility}
+          workdir={workdir}
+          onClose={() => setUtility(null)}
+          onChooseWorkspace={onChooseWorkspace}
+          onUsePrompt={onUsePrompt}
+        />
+      )}
+
       <div className="absolute left-[30px] top-[73%] flex h-[30px] items-center">
         <img className="h-[30px] w-[30px]" src="/figma/avatar.svg" alt="" />
         <button
@@ -140,5 +190,108 @@ export function Sidebar({
       </div>
       <img className="absolute left-[244px] top-[73%] mt-[6px] h-[18px] w-[18px]" src="/figma/icon-logout.svg" alt="" />
     </aside>
+  );
+}
+
+function CompactButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-[#f4f4f4]" aria-label={label} title={label}>
+      <img className="h-4 w-4" src={icon} alt="" />
+    </button>
+  );
+}
+
+function UtilityPanel({
+  mode, workdir, onClose, onChooseWorkspace, onUsePrompt,
+}: {
+  mode: 'skills' | 'mcp' | 'workspace';
+  workdir: string;
+  onClose: () => void;
+  onChooseWorkspace: () => void;
+  onUsePrompt: (prompt: string) => void;
+}) {
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [filesystemAvailable, setFilesystemAvailable] = useState<boolean | null>(null);
+  const [gitAvailable, setGitAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (mode !== 'mcp') return;
+    const controller = new AbortController();
+    let active = true;
+    void Promise.allSettled([
+      fetch(`${API_URL}/health`, { signal: controller.signal }).then((response) => response.ok),
+      workdir ? workspaceApi.tree(workdir).then(() => true) : Promise.resolve(false),
+      workdir ? workspaceApi.review(workdir).then((review) => review.isGitRepository) : Promise.resolve(false),
+    ]).then(([api, filesystem, git]) => {
+      if (!active) return;
+      setApiOnline(api.status === 'fulfilled' && api.value);
+      setFilesystemAvailable(filesystem.status === 'fulfilled' && filesystem.value);
+      setGitAvailable(git.status === 'fulfilled' && git.value);
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [mode, workdir]);
+
+  const skillPrompts = [
+    ['读取与分析文件', '请读取并分析当前项目中与需求相关的文件，先总结现状和关键依赖。'],
+    ['编辑与创建代码', '请根据我的下一条需求编辑或创建代码，并在完成后运行必要的验证。'],
+    ['搜索项目内容', '请在当前项目中搜索与我的下一条问题相关的实现，并列出关键文件和调用关系。'],
+    ['运行构建与测试', '请运行当前项目适用的类型检查、测试和构建，并修复发现的问题。'],
+  ] as const;
+  return (
+    <div className="absolute left-[27px] top-[292px] z-20 w-[237px] rounded-[14px] border border-[#e4e4e4] bg-white p-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold text-[#555]">
+          {mode === 'skills' ? '可用 Skills' : mode === 'mcp' ? 'MCP 连接' : '当前工作空间'}
+        </p>
+        <button type="button" onClick={onClose} className="text-[14px] text-[#aaa]" aria-label="关闭">×</button>
+      </div>
+      {mode === 'skills' && (
+        <div className="mt-2 space-y-1">
+          {skillPrompts.map(([skill, prompt]) => (
+            <button
+              type="button"
+              key={skill}
+              onClick={() => {
+                onUsePrompt(prompt);
+                onClose();
+              }}
+              className="flex w-full items-center gap-2 rounded-lg bg-[#f8f8f7] px-2.5 py-2 text-left text-[10px] text-[#666] hover:bg-[#efefed]"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#32ce50]" />{skill}
+            </button>
+          ))}
+        </div>
+      )}
+      {mode === 'mcp' && (
+        <div className="mt-2 space-y-1.5">
+          <p className="mb-2 text-[8px] leading-3 text-[#aaa]">当前版本使用内置本地集成；这里展示实际可用状态。</p>
+          {([
+            ['本地 Agent API', apiOnline === null ? '检测中' : apiOnline ? '在线' : '离线', apiOnline],
+            ['工作区文件系统', filesystemAvailable === null ? '检测中' : filesystemAvailable ? '可用' : workdir ? '不可读' : '待选择', filesystemAvailable],
+            ['Git 代码审查', gitAvailable === null ? '检测中' : gitAvailable ? '可检查' : workdir ? '非 Git 仓库' : '待选择', gitAvailable],
+          ] as Array<[string, string, boolean | null]>).map(([service, status, available]) => (
+            <div key={service} className="flex items-center rounded-lg border border-[#ededed] px-2.5 py-2 text-[10px] text-[#666]">
+              <span className={`mr-2 h-1.5 w-1.5 rounded-full ${available ? 'bg-[#32ce50]' : 'bg-[#c8c8c8]'}`} />
+              <span className="flex-1">{service}</span>
+              <span className="text-[8px] text-[#999]">{status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {mode === 'workspace' && (
+        <div className="mt-2">
+          <div className="rounded-lg bg-[#f8f8f7] p-2.5">
+            <p className="truncate text-[10px] font-medium text-[#555]">{workdir ? workdir.split('/').pop() : '未选择目录'}</p>
+            <p className="mt-1 break-all text-[8px] leading-3 text-[#999]">{workdir || '新建对话时选择一个项目目录。'}</p>
+          </div>
+          <button type="button" onClick={onChooseWorkspace} className="mt-2 h-8 w-full rounded-lg bg-[#1a1a1a] text-[10px] font-medium text-white">
+            {workdir ? '更换目录' : '选择目录'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

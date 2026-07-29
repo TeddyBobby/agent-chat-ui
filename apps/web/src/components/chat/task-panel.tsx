@@ -1,9 +1,318 @@
 'use client';
 
-export function TaskPanel() {
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  workspaceApi,
+  type WorkspaceEntry,
+  type WorkspaceFile,
+  type WorkspaceReview,
+} from '@/lib/api';
+
+interface TaskPanelProps {
+  workdir: string;
+  onRequestReview: () => void;
+  reviewDisabled?: boolean;
+}
+
+type PanelMode = 'files' | 'review';
+
+export function TaskPanel({ workdir, onRequestReview, reviewDisabled = false }: TaskPanelProps) {
+  const [mode, setMode] = useState<PanelMode>('files');
+  const [entries, setEntries] = useState<WorkspaceEntry[]>([]);
+  const [review, setReview] = useState<WorkspaceReview | null>(null);
+  const [treeTruncated, setTreeTruncated] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<WorkspaceFile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const loadVersion = useRef(0);
+
+  const loadWorkspace = useCallback(async () => {
+    const version = ++loadVersion.current;
+    setSelectedFile(null);
+    if (!workdir) {
+      setEntries([]);
+      setTreeTruncated(false);
+      setReview(null);
+      setSelectedFile(null);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const [tree, nextReview] = await Promise.all([
+        workspaceApi.tree(workdir),
+        workspaceApi.review(workdir),
+      ]);
+      if (version !== loadVersion.current) return;
+      setEntries(tree.entries);
+      setTreeTruncated(tree.truncated);
+      setReview(nextReview);
+    } catch (reason) {
+      if (version !== loadVersion.current) return;
+      setError(reason instanceof Error ? reason.message : '无法读取工作区');
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
+    }
+  }, [workdir]);
+
+  useEffect(() => {
+    // Loading remote workspace state is the synchronization this effect owns.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadWorkspace();
+  }, [loadWorkspace]);
+
+  const openFile = async (path: string) => {
+    if (!workdir) return;
+    const version = loadVersion.current;
+    setLoading(true);
+    setError('');
+    try {
+      const file = await workspaceApi.file(workdir, path);
+      if (version !== loadVersion.current) return;
+      setSelectedFile(file);
+      setMode('files');
+    } catch (reason) {
+      if (version !== loadVersion.current) return;
+      setError(reason instanceof Error ? reason.message : '无法读取文件');
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
+    }
+  };
+
   return (
-    <aside className="relative hidden h-full w-[320px] flex-shrink-0 border-l border-[#dfdfdf] bg-white min-[1440px]:block">
-      <div className="absolute left-[24px] top-[28px] h-[218px] w-[271px] rounded-[11px] border border-[#dfdfdf] bg-[#f5f5f5]" />
+    <aside className="relative hidden h-full w-[320px] flex-shrink-0 border-l border-[#dfdfdf] bg-white min-[1200px]:block">
+      <section className="absolute left-[24px] top-[28px] h-[218px] w-[271px] overflow-hidden rounded-[11px] border border-[#dfdfdf] bg-[#f5f5f5]">
+        <div className="flex border-b border-[#dedede] bg-white/80 p-1.5">
+          <PanelTab active={mode === 'files'} onClick={() => setMode('files')}>文件</PanelTab>
+          <PanelTab active={mode === 'review'} onClick={() => setMode('review')}>
+            代码审查
+            {review?.files.length ? (
+              <span className="ml-1 rounded-full bg-[#32ce50] px-1.5 text-[9px] text-white">{review.files.length}</span>
+            ) : null}
+          </PanelTab>
+          <button
+            type="button"
+            onClick={() => void loadWorkspace()}
+            disabled={!workdir || loading}
+            className="ml-auto h-7 w-7 rounded-md text-[14px] text-[#8a8a8a] hover:bg-white disabled:opacity-30"
+            aria-label="刷新工作区"
+            title="刷新"
+          >
+            ↻
+          </button>
+        </div>
+        <div className="p-4">
+          {workdir ? (
+            <>
+              <p className="truncate text-[12px] font-medium text-[#444]">{workdir.split('/').pop()}</p>
+              <p className="mt-1 truncate text-[9px] text-[#999]">{workdir}</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Summary label="文件" value={countFiles(entries)} />
+                <Summary label="改动" value={review?.files.length || 0} accent={Boolean(review?.files.length)} />
+              </div>
+              <p className="mt-3 text-[9px] leading-4 text-[#999]">
+                {review?.isGitRepository === false ? '当前目录不是 Git 仓库' : '点击下方文件查看内容，或切换到代码审查。'}
+              </p>
+            </>
+          ) : (
+            <div className="flex h-[150px] flex-col items-center justify-center text-center">
+              <span className="text-[22px] text-[#c8c8c8]">⌘</span>
+              <p className="mt-2 text-[11px] font-medium text-[#777]">尚未选择工作目录</p>
+              <p className="mt-1 text-[9px] leading-4 text-[#aaa]">新建对话并选择目录后，可查看文件和代码改动。</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="absolute bottom-0 left-0 right-0 top-[264px] flex flex-col border-t border-[#ededed]">
+        {error && <p className="m-3 rounded-lg bg-red-50 p-2 text-[10px] text-red-500">{error}</p>}
+        {loading && <div className="h-0.5 animate-pulse bg-[#32ce50]" />}
+        {mode === 'files' ? (
+          selectedFile ? (
+            <FilePreview file={selectedFile} onBack={() => setSelectedFile(null)} />
+          ) : (
+            <FileTree entries={entries} truncated={treeTruncated} onOpen={(path) => void openFile(path)} />
+          )
+        ) : (
+          <ReviewPreview
+            review={review}
+            onOpen={(path) => void openFile(path)}
+            onRequestReview={onRequestReview}
+            reviewDisabled={reviewDisabled}
+          />
+        )}
+      </section>
     </aside>
   );
+}
+
+function PanelTab({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-7 items-center rounded-md px-2.5 text-[10px] font-medium transition-colors ${
+        active ? 'bg-white text-[#333] shadow-sm' : 'text-[#999] hover:text-[#555]'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Summary({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div className="rounded-lg border border-[#e2e2e2] bg-white px-3 py-2">
+      <span className={`text-[18px] font-semibold ${accent ? 'text-[#32ce50]' : 'text-[#444]'}`}>{value}</span>
+      <span className="ml-1 text-[9px] text-[#999]">{label}</span>
+    </div>
+  );
+}
+
+function FileTree({ entries, truncated, onOpen }: { entries: WorkspaceEntry[]; truncated: boolean; onOpen: (path: string) => void }) {
+  if (entries.length === 0) {
+    return <EmptyPanel text="工作区中没有可预览的文件" />;
+  }
+  return (
+    <div className="flex-1 overflow-y-auto px-2 py-2">
+      {truncated && (
+        <p className="mb-2 rounded-md bg-amber-50 px-2 py-1.5 text-[9px] leading-4 text-amber-700">
+          文件较多，仅显示前 500 项和四层目录。
+        </p>
+      )}
+      <TreeNodes entries={entries} onOpen={onOpen} depth={0} />
+    </div>
+  );
+}
+
+function TreeNodes({ entries, onOpen, depth }: { entries: WorkspaceEntry[]; onOpen: (path: string) => void; depth: number }) {
+  const [closed, setClosed] = useState<Set<string>>(
+    () => new Set(entries.filter((entry) => entry.type === 'directory').map((entry) => entry.path)),
+  );
+  return (
+    <>
+      {entries.map((entry) => (
+        <div key={entry.path}>
+          <button
+            type="button"
+            onClick={() => {
+              if (entry.type === 'file') return onOpen(entry.path);
+              setClosed((current) => {
+                const next = new Set(current);
+                if (next.has(entry.path)) next.delete(entry.path);
+                else next.add(entry.path);
+                return next;
+              });
+            }}
+            className="flex h-7 w-full items-center rounded-md pr-2 text-left text-[10px] text-[#666] hover:bg-[#f5f5f5]"
+            style={{ paddingLeft: 8 + depth * 12 }}
+          >
+            <span className="mr-1.5 w-3 text-center text-[#aaa]">
+              {entry.type === 'directory' ? (closed.has(entry.path) ? '›' : '⌄') : '·'}
+            </span>
+            <span className="truncate">{entry.name}</span>
+          </button>
+          {entry.type === 'directory' && !closed.has(entry.path) && entry.children?.length ? (
+            <TreeNodes entries={entry.children} onOpen={onOpen} depth={depth + 1} />
+          ) : null}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function FilePreview({ file, onBack }: { file: WorkspaceFile; onBack: () => void }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-10 items-center border-b border-[#ededed] px-3">
+        <button type="button" onClick={onBack} className="mr-2 text-[#888]" aria-label="返回文件树">‹</button>
+        <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-[#555]">{file.path}</span>
+        <span className="text-[8px] uppercase text-[#aaa]">{file.language}</span>
+      </div>
+      <pre className="!m-0 min-h-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#fbfbfb] p-3 text-[10px] leading-5 text-[#555]">
+        <code className="!bg-transparent !p-0 !text-[10px] !text-[#555]">{file.content}</code>
+      </pre>
+    </div>
+  );
+}
+
+function ReviewPreview({
+  review,
+  onOpen,
+  onRequestReview,
+  reviewDisabled,
+}: {
+  review: WorkspaceReview | null;
+  onOpen: (path: string) => void;
+  onRequestReview: () => void;
+  reviewDisabled: boolean;
+}) {
+  if (!review?.isGitRepository) return <EmptyPanel text="请选择一个 Git 工作目录" />;
+  if (review.files.length === 0) return <EmptyPanel text="当前没有待审查的代码改动" />;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-[#ededed] p-2">
+        <button
+          type="button"
+          onClick={onRequestReview}
+          disabled={reviewDisabled}
+          className="mb-2 h-8 w-full rounded-lg bg-[#1a1a1a] text-[10px] font-medium text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {reviewDisabled ? '任务进行中' : '让 Agent 审查这些改动'}
+        </button>
+        <div className="max-h-[120px] overflow-y-auto">
+        {review.files.map((file) => (
+          <button
+            type="button"
+            key={`${file.status}-${file.path}`}
+            onClick={() => !file.status.includes('D') && onOpen(reviewPath(file.path))}
+            disabled={file.status.includes('D')}
+            className="flex h-7 w-full items-center rounded-md px-2 text-left text-[10px] hover:bg-[#f5f5f5] disabled:cursor-default disabled:opacity-60"
+            title={file.status.includes('D') ? '文件已删除，可在下方 diff 中查看原内容' : `打开 ${file.path}`}
+          >
+            <span className="mr-2 w-5 font-mono text-[#32a54a]">{file.status}</span>
+            <span className="truncate text-[#666]">{file.path}</span>
+          </button>
+        ))}
+        </div>
+      </div>
+      <pre className="!m-0 min-h-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#fbfbfb] p-3 text-[9px] leading-4">
+        {review.patchTruncated && (
+          <code className="mb-2 block rounded bg-amber-50 p-2 !text-[9px] !text-amber-700">
+            未跟踪文件的 diff 超过 2MB，已截断显示。
+          </code>
+        )}
+        {review.patch.split('\n').map((line, index) => (
+          <code
+            key={`${index}-${line}`}
+            className={`block whitespace-pre !bg-transparent !p-0 !text-[9px] ${
+              line.startsWith('+') && !line.startsWith('+++')
+                ? '!text-[#218739]'
+                : line.startsWith('-') && !line.startsWith('---')
+                  ? '!text-[#c84b4b]'
+                  : '!text-[#777]'
+            }`}
+          >
+            {line || ' '}
+          </code>
+        ))}
+      </pre>
+    </div>
+  );
+}
+
+function EmptyPanel({ text }: { text: string }) {
+  return <div className="flex flex-1 items-center justify-center px-8 text-center text-[10px] leading-5 text-[#aaa]">{text}</div>;
+}
+
+function countFiles(entries: WorkspaceEntry[]): number {
+  return entries.reduce(
+    (count, entry) => count + (entry.type === 'file' ? 1 : countFiles(entry.children || [])),
+    0,
+  );
+}
+
+function reviewPath(path: string) {
+  const renameTarget = path.includes(' -> ') ? path.split(' -> ').at(-1) : path;
+  return renameTarget?.replace(/^{|}$/g, '') || path;
 }
