@@ -10,6 +10,7 @@ import {
   type WorkspaceFile,
   type WorkspaceReview,
 } from '@/lib/api';
+import { patchForReviewFile, reviewPath } from './review-patch';
 
 interface TaskPanelProps {
   workdir: string;
@@ -133,7 +134,6 @@ export function TaskPanel({
         ) : activeTab === 'review' ? (
           <ReviewPreview
             review={review}
-            onOpen={(path) => void openFile(path)}
             onRequestReview={onRequestReview}
             reviewDisabled={reviewDisabled}
           />
@@ -425,22 +425,28 @@ function fencedCode(content: string, language: string) {
 
 function ReviewPreview({
   review,
-  onOpen,
   onRequestReview,
   reviewDisabled,
 }: {
   review: WorkspaceReview | null;
-  onOpen: (path: string) => void;
   onRequestReview: () => void;
   reviewDisabled: boolean;
 }) {
+  const [requestedPath, setRequestedPath] = useState<string | null>(null);
+
   if (!review?.isGitRepository) return <EmptyPanel text="请选择一个 Git 工作目录" />;
   if (review.files.length === 0) return <EmptyPanel text="当前没有待审查的代码改动" />;
+
+  const selectedFile = review.files.find((file) => file.path === requestedPath) || review.files[0];
+  const selectedPath = reviewPath(selectedFile.path);
+  const selectedPatch = patchForReviewFile(review.patch, selectedPath);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-12 flex-shrink-0 items-center border-b border-[#ededed] px-4 dark:border-zinc-800">
         <span className="text-[11px] font-medium text-[#555] dark:text-zinc-300">代码改动</span>
         <span className="ml-2 text-[10px] text-[#32a54a]">{review.files.length} 个文件</span>
+        <span className="ml-3 min-w-0 truncate text-[9px] text-[#999]" title={selectedPath}>{selectedPath}</span>
         <button
           type="button"
           onClick={onRequestReview}
@@ -457,20 +463,26 @@ function ReviewPreview({
               未跟踪文件的 diff 超过 2MB，已截断显示。
             </code>
           )}
-          {review.patch.split('\n').map((line, index) => (
-            <code
-              key={`${index}-${line}`}
-              className={`block whitespace-pre !bg-transparent !p-0 !text-[9px] ${
-                line.startsWith('+') && !line.startsWith('+++')
-                  ? '!text-[#218739]'
-                  : line.startsWith('-') && !line.startsWith('---')
-                    ? '!text-[#c84b4b]'
-                    : '!text-[#777]'
-              }`}
-            >
-              {line || ' '}
+          {selectedPatch ? (
+            selectedPatch.split('\n').map((line, index) => (
+              <code
+                key={`${index}-${line}`}
+                className={`block whitespace-pre !bg-transparent !p-0 !text-[9px] ${
+                  line.startsWith('+') && !line.startsWith('+++')
+                    ? '!text-[#218739]'
+                    : line.startsWith('-') && !line.startsWith('---')
+                      ? '!text-[#c84b4b]'
+                      : '!text-[#777]'
+                }`}
+              >
+                {line || ' '}
+              </code>
+            ))
+          ) : (
+            <code className="block !bg-transparent !p-0 !text-[9px] !text-[#999]">
+              当前文件的 Diff 未包含在审阅结果中，请刷新后重试。
             </code>
-          ))}
+          )}
         </pre>
         <div className="w-[190px] flex-shrink-0 overflow-y-auto border-l border-[#ededed] p-2 dark:border-zinc-800">
           <p className="px-2 py-1 text-[9px] font-medium uppercase tracking-wide text-[#999]">变更文件</p>
@@ -478,10 +490,14 @@ function ReviewPreview({
             <button
               type="button"
               key={`${file.status}-${file.path}`}
-              onClick={() => !file.status.includes('D') && onOpen(reviewPath(file.path))}
-              disabled={file.status.includes('D')}
-              className="flex min-h-8 w-full items-center rounded-md px-2 text-left text-[10px] hover:bg-[#f5f5f5] disabled:cursor-default disabled:opacity-60 dark:hover:bg-zinc-800"
-              title={file.status.includes('D') ? '文件已删除，可在 diff 中查看原内容' : `打开 ${file.path}`}
+              onClick={() => setRequestedPath(file.path)}
+              aria-pressed={selectedFile.path === file.path}
+              className={`flex min-h-8 w-full items-center rounded-md px-2 text-left text-[10px] ${
+                selectedFile.path === file.path
+                  ? 'bg-[#eeeeec] dark:bg-zinc-800'
+                  : 'hover:bg-[#f5f5f5] dark:hover:bg-zinc-800'
+              }`}
+              title={`审阅 ${file.path}`}
             >
               <span className="mr-2 w-5 flex-shrink-0 font-mono text-[#32a54a]">{file.status}</span>
               <span className="truncate text-[#666] dark:text-zinc-400">{file.path}</span>
@@ -495,11 +511,6 @@ function ReviewPreview({
 
 function EmptyPanel({ text }: { text: string }) {
   return <div className="flex flex-1 items-center justify-center px-8 text-center text-[10px] leading-5 text-[#aaa]">{text}</div>;
-}
-
-function reviewPath(path: string) {
-  const renameTarget = path.includes(' -> ') ? path.split(' -> ').at(-1) : path;
-  return renameTarget?.replace(/^{|}$/g, '') || path;
 }
 
 function filterEntries(entries: WorkspaceEntry[], query: string): WorkspaceEntry[] {
