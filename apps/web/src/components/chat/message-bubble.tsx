@@ -172,8 +172,8 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
   const desiredToolSummary = useMemo(
-    () => getToolSummarySnapshot(message.toolCalls),
-    [message.toolCalls],
+    () => getToolSummarySnapshot(message.toolCalls, Boolean(streaming)),
+    [message.toolCalls, streaming],
   );
   const [toolSummary, setToolSummary] = useState<ToolSummaryView>(
     () => ({ ...desiredToolSummary, since: Date.now() }),

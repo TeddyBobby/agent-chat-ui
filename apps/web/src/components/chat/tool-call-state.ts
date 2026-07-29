@@ -25,14 +25,25 @@ const MIN_RUNNING_VISIBLE_MS = 400;
 const TOOL_SWITCH_INTERVAL_MS = 200;
 
 export function getToolSummary(toolCalls: ToolSummaryItem[] | undefined): string {
-  return getToolSummarySnapshot(toolCalls).text;
+  return getToolSummarySnapshot(toolCalls, false).text;
 }
 
-export function getToolSummarySnapshot(toolCalls: ToolSummaryItem[] | undefined): ToolSummarySnapshot {
+export function getToolSummarySnapshot(
+  toolCalls: ToolSummaryItem[] | undefined,
+  taskRunning = false,
+): ToolSummarySnapshot {
   const tools = toolCalls || [];
   const completed = tools.filter((tool) => tool.status !== 'running').length;
   const running = tools.find((tool) => tool.status === 'running');
-  if (!running) return { text: `${completed}/${tools.length} tools`, running: false };
+  if (!running) {
+    if (taskRunning && tools.length > 0) {
+      return {
+        text: `Processing tool results · ${completed}/${tools.length}`,
+        running: true,
+      };
+    }
+    return { text: `${completed}/${tools.length} tools`, running: false };
+  }
 
   const action = TOOL_ACTIONS[running.name] || running.name;
   const target = running.args?.path

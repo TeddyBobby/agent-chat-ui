@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getToolSummary,
+  getToolSummarySnapshot,
   reconcileToolSummary,
   type ToolSummaryView,
 } from '../src/components/chat/tool-call-state.js';
@@ -23,6 +24,19 @@ test('the collapsed summary returns to progress after tools complete', () => {
       { name: 'edit_file', status: 'completed' },
     ]),
     '2/2 tools',
+  );
+});
+
+test('completed tools keep showing task activity until the run actually ends', () => {
+  assert.deepEqual(
+    getToolSummarySnapshot([
+      { name: 'read_file', status: 'completed' },
+      { name: 'edit_file', status: 'completed' },
+    ], true),
+    {
+      text: 'Processing tool results · 2/2',
+      running: true,
+    },
   );
 });
 
