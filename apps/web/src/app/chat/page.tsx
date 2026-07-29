@@ -41,6 +41,7 @@ export default function ChatPage() {
   const [hydrated, setHydrated] = useState(false);
   const [pickerPurpose, setPickerPurpose] = useState<"new" | "workspace" | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [taskPanelCollapsed, setTaskPanelCollapsed] = useState(false);
   const [composerDraft, setComposerDraft] = useState<{ id: number; content: string }>();
   const subscriptions = useRef(new Map<string, AbortController>());
   const credentialSave = useRef<Promise<void> | null>(null);
@@ -270,7 +271,7 @@ export default function ChatPage() {
         onUsePrompt={queuePrompt}
       />
       <main className={`relative flex min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950 ${
-        sidebarCollapsed ? "" : "min-[1440px]:w-[836px] min-[1440px]:flex-none"
+        sidebarCollapsed || taskPanelCollapsed ? "" : "min-[1440px]:w-[836px] min-[1440px]:flex-none"
       }`}>
         {(activeConversation?.messages.length || 0) > 0 ? (
           <MessageList
@@ -309,6 +310,8 @@ export default function ChatPage() {
       </main>
       <TaskPanel
         workdir={activeConversation?.workdir || ""}
+        collapsed={taskPanelCollapsed}
+        onCollapsedChange={setTaskPanelCollapsed}
         onRequestReview={() => void handleSend(
           "请审查当前工作目录中的未提交代码改动。请重点检查正确性、安全性、回归风险和测试覆盖，并按严重程度列出发现，注明文件路径和位置。",
         )}

@@ -13,30 +13,36 @@ import {
 
 interface TaskPanelProps {
   workdir: string;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
   onRequestReview: () => void;
   reviewDisabled?: boolean;
 }
 
-type PanelMode = 'files' | 'review';
+type PanelTabId = 'explorer' | 'review' | `file:${string}`;
 
-export function TaskPanel({ workdir, onRequestReview, reviewDisabled = false }: TaskPanelProps) {
-  const [mode, setMode] = useState<PanelMode>('files');
+export function TaskPanel({
+  workdir,
+  collapsed,
+  onCollapsedChange,
+  onRequestReview,
+  reviewDisabled = false,
+}: TaskPanelProps) {
+  const [activeTab, setActiveTab] = useState<PanelTabId>('explorer');
+  const [openFiles, setOpenFiles] = useState<WorkspaceFile[]>([]);
   const [entries, setEntries] = useState<WorkspaceEntry[]>([]);
   const [review, setReview] = useState<WorkspaceReview | null>(null);
   const [treeTruncated, setTreeTruncated] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<WorkspaceFile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const loadVersion = useRef(0);
 
   const loadWorkspace = useCallback(async () => {
     const version = ++loadVersion.current;
-    setSelectedFile(null);
     if (!workdir) {
       setEntries([]);
       setTreeTruncated(false);
       setReview(null);
-      setSelectedFile(null);
       return;
     }
     setLoading(true);
@@ -59,21 +65,28 @@ export function TaskPanel({ workdir, onRequestReview, reviewDisabled = false }: 
   }, [workdir]);
 
   useEffect(() => {
-    // Loading remote workspace state is the synchronization this effect owns.
+    // A workspace identity change resets its browser-style tabs before loading the new tree.
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpenFiles([]);
+    setActiveTab('explorer');
     void loadWorkspace();
   }, [loadWorkspace]);
 
   const openFile = async (path: string) => {
     if (!workdir) return;
+    const tabId = `file:${path}` as const;
+    if (openFiles.some((file) => file.path === path)) {
+      setActiveTab(tabId);
+      return;
+    }
     const version = loadVersion.current;
     setLoading(true);
     setError('');
     try {
       const file = await workspaceApi.file(workdir, path);
       if (version !== loadVersion.current) return;
-      setSelectedFile(file);
-      setMode('files');
+      setOpenFiles((current) => current.some((entry) => entry.path === path) ? current : [...current, file]);
+      setActiveTab(tabId);
     } catch (reason) {
       if (version !== loadVersion.current) return;
       setError(reason instanceof Error ? reason.message : '无法读取文件');
@@ -82,17 +95,68 @@ export function TaskPanel({ workdir, onRequestReview, reviewDisabled = false }: 
     }
   };
 
+  const closeFile = (path: string) => {
+    const tabId = `file:${path}` as const;
+    if (activeTab === tabId) {
+      const index = openFiles.findIndex((file) => file.path === path);
+      const adjacent = openFiles[index - 1] || openFiles[index + 1];
+      setActiveTab(adjacent ? `file:${adjacent.path}` : 'explorer');
+    }
+    setOpenFiles((current) => current.filter((file) => file.path !== path));
+  };
+
+  const activeFile = activeTab.startsWith('file:')
+    ? openFiles.find((file) => `file:${file.path}` === activeTab)
+    : undefined;
+
+  if (collapsed) {
+    return (
+      <aside className="relative hidden h-full w-[44px] flex-shrink-0 border-l border-[#dfdfdf] bg-[#f7f7f6] min-[1200px]:block">
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(false)}
+          className="absolute left-[9px] top-[28px] flex h-7 w-7 items-center justify-center rounded-md text-[16px] text-[#777] hover:bg-white"
+          aria-label="展开右侧工作区"
+          title="展开工作区"
+        >
+          ‹
+        </button>
+        <CollapsedTab
+          label="文件"
+          active={activeTab === 'explorer'}
+          top={76}
+          onClick={() => {
+            setActiveTab('explorer');
+            onCollapsedChange(false);
+          }}
+        >
+          F
+        </CollapsedTab>
+        <CollapsedTab
+          label="代码审查"
+          active={activeTab === 'review'}
+          top={114}
+          onClick={() => {
+            setActiveTab('review');
+            onCollapsedChange(false);
+          }}
+        >
+          Δ
+        </CollapsedTab>
+        {openFiles.length > 0 && (
+          <span className="absolute left-[13px] top-[154px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#32ce50] px-1 text-[9px] text-white">
+            {openFiles.length}
+          </span>
+        )}
+      </aside>
+    );
+  }
+
   return (
     <aside className="relative hidden h-full w-[320px] flex-shrink-0 border-l border-[#dfdfdf] bg-white min-[1200px]:block">
       <section className="absolute left-[24px] top-[28px] h-[218px] w-[271px] overflow-hidden rounded-[11px] border border-[#dfdfdf] bg-[#f5f5f5]">
         <div className="flex border-b border-[#dedede] bg-white/80 p-1.5">
-          <PanelTab active={mode === 'files'} onClick={() => setMode('files')}>文件</PanelTab>
-          <PanelTab active={mode === 'review'} onClick={() => setMode('review')}>
-            代码审查
-            {review?.files.length ? (
-              <span className="ml-1 rounded-full bg-[#32ce50] px-1.5 text-[9px] text-white">{review.files.length}</span>
-            ) : null}
-          </PanelTab>
+          <span className="flex h-7 items-center px-2 text-[10px] font-medium text-[#555]">工作区</span>
           <button
             type="button"
             onClick={() => void loadWorkspace()}
@@ -102,6 +166,15 @@ export function TaskPanel({ workdir, onRequestReview, reviewDisabled = false }: 
             title="刷新"
           >
             ↻
+          </button>
+          <button
+            type="button"
+            onClick={() => onCollapsedChange(true)}
+            className="h-7 w-7 rounded-md text-[14px] text-[#8a8a8a] hover:bg-white"
+            aria-label="收起右侧工作区"
+            title="收起工作区"
+          >
+            ›
           </button>
         </div>
         <div className="p-4">
@@ -128,35 +201,138 @@ export function TaskPanel({ workdir, onRequestReview, reviewDisabled = false }: 
       </section>
 
       <section className="absolute bottom-0 left-0 right-0 top-[264px] flex flex-col border-t border-[#ededed]">
+        <WorkspaceTabs
+          activeTab={activeTab}
+          openFiles={openFiles}
+          reviewCount={review?.files.length || 0}
+          onSelect={setActiveTab}
+          onCloseFile={closeFile}
+        />
         {error && <p className="m-3 rounded-lg bg-red-50 p-2 text-[10px] text-red-500">{error}</p>}
         {loading && <div className="h-0.5 animate-pulse bg-[#32ce50]" />}
-        {mode === 'files' ? (
-          selectedFile ? (
-            <FilePreview file={selectedFile} onBack={() => setSelectedFile(null)} />
-          ) : (
-            <FileTree entries={entries} truncated={treeTruncated} onOpen={(path) => void openFile(path)} />
-          )
-        ) : (
+        {activeTab === 'explorer' ? (
+          <FileTree entries={entries} truncated={treeTruncated} onOpen={(path) => void openFile(path)} />
+        ) : activeTab === 'review' ? (
           <ReviewPreview
             review={review}
             onOpen={(path) => void openFile(path)}
             onRequestReview={onRequestReview}
             reviewDisabled={reviewDisabled}
           />
+        ) : activeFile ? (
+          <FilePreview key={activeFile.path} file={activeFile} />
+        ) : (
+          <EmptyPanel text="文件标签已关闭" />
         )}
       </section>
     </aside>
   );
 }
 
-function PanelTab({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function WorkspaceTabs({
+  activeTab,
+  openFiles,
+  reviewCount,
+  onSelect,
+  onCloseFile,
+}: {
+  activeTab: PanelTabId;
+  openFiles: WorkspaceFile[];
+  reviewCount: number;
+  onSelect: (tab: PanelTabId) => void;
+  onCloseFile: (path: string) => void;
+}) {
+  return (
+    <div className="flex h-9 flex-shrink-0 items-end overflow-x-auto border-b border-[#dcdcdc] bg-[#eeeeec]">
+      <BrowserTab active={activeTab === 'explorer'} label="文件" onClick={() => onSelect('explorer')} />
+      <BrowserTab
+        active={activeTab === 'review'}
+        label="审查"
+        badge={reviewCount}
+        onClick={() => onSelect('review')}
+      />
+      {openFiles.map((file) => (
+        <BrowserTab
+          key={file.path}
+          active={activeTab === `file:${file.path}`}
+          label={file.path.split('/').pop() || file.path}
+          title={file.path}
+          closable
+          onClick={() => onSelect(`file:${file.path}`)}
+          onClose={() => onCloseFile(file.path)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function BrowserTab({
+  active,
+  label,
+  title,
+  badge,
+  closable = false,
+  onClick,
+  onClose,
+}: {
+  active: boolean;
+  label: string;
+  title?: string;
+  badge?: number;
+  closable?: boolean;
+  onClick: () => void;
+  onClose?: () => void;
+}) {
+  return (
+    <div
+      className={`group flex h-8 max-w-[142px] flex-shrink-0 items-center border-r border-[#d9d9d7] ${
+        active ? 'rounded-t-md bg-white text-[#444]' : 'bg-[#eeeeec] text-[#888] hover:bg-[#f7f7f5]'
+      }`}
+      title={title || label}
+    >
+      <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center px-2 text-[9px]">
+        <span className="truncate">{label}</span>
+        {Boolean(badge) && (
+          <span className="ml-1 rounded-full bg-[#32ce50] px-1 text-[8px] text-white">{badge}</span>
+        )}
+      </button>
+      {closable && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="mr-1 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-[11px] text-[#aaa] hover:bg-[#dededc] hover:text-[#555]"
+          aria-label={`关闭 ${label}`}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CollapsedTab({
+  active,
+  top,
+  label,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  top: number;
+  label: string;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-7 items-center rounded-md px-2.5 text-[10px] font-medium transition-colors ${
-        active ? 'bg-white text-[#333] shadow-sm' : 'text-[#999] hover:text-[#555]'
+      className={`absolute left-[8px] flex h-7 w-7 items-center justify-center rounded-md text-[10px] ${
+        active ? 'bg-white font-semibold text-[#32a94a] shadow-sm' : 'text-[#888] hover:bg-white'
       }`}
+      style={{ top }}
+      aria-label={`打开${label}`}
+      title={label}
     >
       {children}
     </button>
@@ -224,7 +400,7 @@ function TreeNodes({ entries, onOpen, depth }: { entries: WorkspaceEntry[]; onOp
   );
 }
 
-function FilePreview({ file, onBack }: { file: WorkspaceFile; onBack: () => void }) {
+function FilePreview({ file }: { file: WorkspaceFile }) {
   const markdown = file.language === 'markdown';
   const [view, setView] = useState<'preview' | 'source'>(markdown ? 'preview' : 'source');
   const [copied, setCopied] = useState(false);
@@ -238,7 +414,6 @@ function FilePreview({ file, onBack }: { file: WorkspaceFile; onBack: () => void
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-10 flex-shrink-0 items-center border-b border-[#ededed] px-3">
-        <button type="button" onClick={onBack} className="mr-2 text-[#888]" aria-label="返回文件树">‹</button>
         <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-[#555]">{file.path}</span>
         {markdown && (
           <div className="mr-1 flex rounded-md bg-[#f3f3f2] p-0.5">
