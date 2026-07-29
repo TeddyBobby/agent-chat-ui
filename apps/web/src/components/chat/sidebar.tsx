@@ -25,9 +25,9 @@ interface SidebarProps {
 }
 
 const FIGMA_ICON = {
-  skills: '/figma/icon-skill.svg',
-  mcp: '/figma/icon-mcp.svg',
-  newChat: '/figma/icon-new-chat.svg',
+  skills: '/figma/icon-new-chat.svg',
+  mcp: '/figma/icon-mcp-connector.svg',
+  newChat: '/figma/icon-skill.svg',
   workspace: '/figma/icon-workspace.svg',
   recent: '/figma/icon-recent.svg',
 };
