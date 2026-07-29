@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getToolSummary } from '../src/components/chat/tool-call-state.js';
+import {
+  getToolSummary,
+  reconcileToolSummary,
+  type ToolSummaryView,
+} from '../src/components/chat/tool-call-state.js';
 
 test('the collapsed summary names the currently running tool and target', () => {
   assert.equal(
@@ -20,4 +24,34 @@ test('the collapsed summary returns to progress after tools complete', () => {
     ]),
     '2/2 tools',
   );
+});
+
+test('a fast completion keeps the running summary visible for at least 400ms', () => {
+  const running: ToolSummaryView = {
+    text: 'Executing Read · page.tsx · 0/1',
+    running: true,
+    since: 1_000,
+  };
+  const transition = reconcileToolSummary(
+    running,
+    { text: '1/1 tools', running: false },
+    1_050,
+  );
+  assert.deepEqual(transition.view, running);
+  assert.equal(transition.retryIn, 350);
+});
+
+test('rapid tool changes are coalesced instead of changing every frame', () => {
+  const current: ToolSummaryView = {
+    text: 'Executing Read · page.tsx · 0/2',
+    running: true,
+    since: 1_000,
+  };
+  const transition = reconcileToolSummary(
+    current,
+    { text: 'Executing Edit · page.tsx · 1/2', running: true },
+    1_080,
+  );
+  assert.deepEqual(transition.view, current);
+  assert.equal(transition.retryIn, 120);
 });

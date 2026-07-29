@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Message } from '@/lib/types';
 import { ToolCallCard } from './tool-call-card';
-import { getToolSummary } from './tool-call-state';
+import {
+  getToolSummarySnapshot,
+  reconcileToolSummary,
+  type ToolSummaryView,
+} from './tool-call-state';
 import { AgentMark } from './agent-mark';
 
 // ── Code block copy ──
@@ -167,8 +171,30 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   const [showTools, setShowTools] = useState(false);
   const completedTools = message.toolCalls?.filter(tc => tc.status !== 'running').length || 0;
   const totalTools = message.toolCalls?.length || 0;
-  const runningTool = message.toolCalls?.find(tc => tc.status === 'running');
-  const toolSummary = getToolSummary(message.toolCalls);
+  const desiredToolSummary = useMemo(
+    () => getToolSummarySnapshot(message.toolCalls),
+    [message.toolCalls],
+  );
+  const [toolSummary, setToolSummary] = useState<ToolSummaryView>(
+    () => ({ ...desiredToolSummary, since: Date.now() }),
+  );
+  const toolSummaryRef = useRef(toolSummary);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const update = () => {
+      const transition = reconcileToolSummary(toolSummaryRef.current, desiredToolSummary, Date.now());
+      if (transition.view !== toolSummaryRef.current) {
+        toolSummaryRef.current = transition.view;
+        setToolSummary(transition.view);
+      }
+      if (transition.retryIn) timer = setTimeout(update, transition.retryIn);
+    };
+    update();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [desiredToolSummary]);
 
   const { files, cleanContent } = useMemo(
     () => parseFiles(message.content),
@@ -319,8 +345,8 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
             <div className="mt-2">
               <button
                 onClick={() => setShowTools(!showTools)}
-                className={`flex items-center gap-1.5 text-[11px] transition-colors ${
-                  runningTool
+                className={`flex h-7 w-full max-w-[440px] items-center gap-1.5 rounded-md px-1 text-[11px] transition-colors ${
+                  toolSummary.running
                     ? 'text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200'
                     : 'text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-400'
                 }`}
@@ -329,13 +355,17 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                   className={`transition-transform ${showTools ? 'rotate-90' : ''}`}>
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
-                {runningTool && (
+                <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
+                {toolSummary.running && (
                   <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-2 border-amber-400/40 border-t-amber-500" />
                 )}
-                <span className="truncate">{toolSummary}</span>
-                {completedTools === totalTools && totalTools > 0 && (
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left">{toolSummary.text}</span>
+                <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
+                {!toolSummary.running && completedTools === totalTools && totalTools > 0 && (
                   <span className="text-emerald-500">✓</span>
                 )}
+                </span>
               </button>
 
               {showTools && (
