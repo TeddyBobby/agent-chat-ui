@@ -41,6 +41,12 @@ export default function ChatPage() {
   const subscriptions = useRef(new Map<string, AbortController>());
   const credentialSave = useRef<Promise<void> | null>(null);
 
+  const conversationUrl = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("id", id);
+    return `/chat?${params.toString()}`;
+  };
+
   const refresh = useCallback(async () => {
     const next = await conversationApi.list();
     setConversations(next);
@@ -121,7 +127,7 @@ export default function ChatPage() {
       if (selected) {
         setActiveId(selected.id);
         setModel(selected.model);
-        router.replace(`/chat?id=${selected.id}`, { scroll: false });
+        router.replace(conversationUrl(selected.id), { scroll: false });
       }
       for (const conversation of loaded) {
         if (conversation.activeRun) attachRun(conversation.id, conversation.activeRun);
@@ -148,7 +154,7 @@ export default function ChatPage() {
     const conversation = await conversationApi.create({ model, workdir });
     setConversations((current) => [conversation, ...current]);
     setActiveId(conversation.id);
-    router.replace(`/chat?id=${conversation.id}`, { scroll: false });
+    router.replace(conversationUrl(conversation.id), { scroll: false });
   };
 
   const handleSend = async (content: string) => {
@@ -157,7 +163,7 @@ export default function ChatPage() {
     if (!conversation) {
       conversation = await conversationApi.create({ model, workdir: "" });
       setActiveId(conversation.id);
-      router.replace(`/chat?id=${conversation.id}`, { scroll: false });
+      router.replace(conversationUrl(conversation.id), { scroll: false });
     }
     const modelInfo = MODELS.find((entry) => entry.id === model);
     const run = await conversationApi.startRun(conversation.id, {
@@ -217,7 +223,7 @@ export default function ChatPage() {
         runningConvIds={runningIds}
         onSelect={(id) => {
           setActiveId(id);
-          router.replace(`/chat?id=${id}`, { scroll: false });
+          router.replace(conversationUrl(id), { scroll: false });
           const selected = conversations.find((conversation) => conversation.id === id);
           if (selected) setModel(selected.model);
         }}

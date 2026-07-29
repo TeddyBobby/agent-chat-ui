@@ -1,68 +1,40 @@
 # 上下文管理
 
-## 概述
+实现位置：`packages/agent/src/core.ts`。
 
-长对话时自动压缩历史消息，防止超出 LLM context window。实现参考 Hermes，使用同模型做摘要。
+## 目标
+
+长任务中保留最近的指令、工具结果和关键历史，同时避免超过模型 context window。会话快照中的 `contextTokens` 是近似值，实际压缩发生在 Agent 内部消息数组。
 
 ## 触发条件
 
-- 每 5 步检查一次
-- token 使用量 > contextLimit × 75%
+- 每执行 5 个 Agent step 检查一次。
+- 估算 token 数超过 `contextLimit × 75%` 时压缩。
+- 默认 `contextLimit` 为 128,000，可由模型配置随 `StartRunRequest` 传入。
 
-## 压缩算法
+## 压缩策略
 
-```
-触发压缩
-    │
-    ├─ System prompt ────────────────→ 永远保留
-    ├─ 尾部 30% 窗口 ─────────────────→ 完整保留（最新上下文）
-    └─ 中间轮次 ──→ LLM 摘要 ──→ 替换为一条 [上下文摘要] 消息
-                     │
-                     失败 → 丢弃中间，只保留 system + 尾部
+```text
+System prompt ─────────────────────────────► 永久保留
+较旧的中间消息 ─► 同一模型生成摘要 ─────────► 一条历史摘要
+最近约 30% token 窗口 ─────────────────────► 原样保留
 ```
 
-## 摘要格式
+摘要最多使用约 `contextLimit × 10%` 的预算，并明确标记为历史参考而不是当前用户指令。摘要失败时回退为保留 System prompt 与最近窗口，避免整个任务因辅助压缩失败而终止。
 
-摘要插入为一条 `role: "user"` 消息，带明确前缀：
+## 传递链路
 
-```
-[上下文摘要 — 历史参考，不是当前指令]
-- 用户要求重构 user 模块的错误处理
-- 修改了 src/user.ts，统一了 try-catch 模式
-- 添加了 UserError 自定义类型
-- 测试全部通过
-
---- 继续对话 ---
+```text
+apps/web 模型配置
+  -> StartRunRequest.contextLimit
+  -> apps/server RunManager
+  -> PiAgent AgentConfig.contextLimit
+  -> _estimateTokens() / _compressContext()
 ```
 
-## 摘要 prompt
+## 限制
 
-```
-Summarize the following conversation into a concise context summary.
-Keep all important facts, decisions, file changes, and error fixes.
-Format as bullet points. Be brief.
-```
-
-## 参数
-
-| 参数 | 值 | 说明 |
-|------|---|------|
-| 触发阈值 | 75% | token > contextLimit × 0.75 |
-| 尾部预算 | 30% | 保留最新 contextLimit × 0.3 的消息 |
-| 摘要预算 | 10% | 摘要最多 contextLimit × 0.1 tokens |
-| 检查频率 | 每 5 步 | 避免每轮都检查开销 |
-
-## 和 Hermes 的对比
-
-| | Hermes | PiAgent |
-|---|---|---|
-| 触发 | should_compress() 每轮 | 每 5 步检查 |
-| 预裁剪 | 剪旧工具结果换占位符 | ❌ |
-| 摘要模型 | 独立辅助模型（更便宜） | 同模型 |
-| 摘要迭代 | 再次压缩合并旧摘要 | 每次重新总结 |
-| 失败冷却 | 600s 冷却 | 直接回退截断 |
-
-## 代码位置
-
-- `src/lib/agent/core.ts` — `_estimateTokens()`, `_compressContext()`
-- 配置：`AgentConfig.contextLimit`，从 `MODELS[].contextLimit` → engine → route → core
+- token 统计是估算，不是供应商 tokenizer 的精确值。
+- 摘要使用当前主模型，不支持单独的低成本摘要模型。
+- 工具结果不会先分层裁剪，而是随中间历史一起摘要。
+- 每次压缩基于当前消息集合重新生成摘要。

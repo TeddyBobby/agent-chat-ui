@@ -15,7 +15,7 @@ node_modules
 
 # next.js
 **/.next/
-/out/
+**/out/
 
 # production
 /build
@@ -42,3 +42,5 @@ next-env.d.ts
 dist/
 .data/
 .turbo/
+/apps/desktop/generated/
+/release/

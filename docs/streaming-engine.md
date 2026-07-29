@@ -1,148 +1,81 @@
-# 流式渲染引擎（五层架构）
+# 持久化流式引擎
 
-前端 SSE 处理集中在 `src/lib/stream/engine.ts`，`page.tsx` 不再直接解析 SSE。
+当前实现不再使用单次 `POST /api/chat` 把任务生命周期绑定到浏览器连接。启动命令与事件订阅是两条独立链路。
 
-```
-┌────────────────────────────────────────────────┐
-│ Layer 1: ConnectionManager                     │
-│ 指数退避重连 · 抖动防雪崩 · 区分停止/断开      │
-├────────────────────────────────────────────────┤
-│ Layer 2: StreamBuffer                          │
-│ 半包/粘包缓冲 · TextDecoder 多字节安全          │
-├────────────────────────────────────────────────┤
-│ Layer 3: RequestDedup                          │
-│ 请求 ID 去重 · 顺序校验 · 丢弃过期请求          │
-├────────────────────────────────────────────────┤
-│ Layer 4: BatchRenderer (RAF)                   │
-│ requestAnimationFrame 批量更新                  │
-├────────────────────────────────────────────────┤
-│ Layer 5: createAgentStream 主控器               │
-│ text → 入队渲染 · tool_call → 即时更新 · done   │
-└────────────────────────────────────────────────┘
-```
+## 协议
 
-## Layer 1: ConnectionManager
+```http
+POST /v1/conversations/:conversationId/runs
+Content-Type: application/json
 
-指数退避 + 随机抖动，区分用户停止和网络断开。
-
-```ts
-class ConnectionManager {
-  private retries = 0;
-  private maxRetries = 3;
-  private baseDelay = 1000;   // 1s → 2s → 4s → 8s (max 30s)
-
-  private backoff(): number {
-    const exp = Math.min(this.baseDelay * 2 ** this.retries, this.maxDelay);
-    return Math.round(exp * (0.75 + Math.random() * 0.5)); // ±25% 抖动
-  }
-
-  async fetch(url, body, signal: AbortSignal) {
-    while (this.retries <= this.maxRetries) {
-      try {
-        return await fetch(url, { method: 'POST', body: JSON.stringify(body), signal });
-      } catch (e) {
-        if (e.name === 'AbortError') throw e;  // 用户停止，不重试
-        this.retries++;
-        if (this.retries > this.maxRetries) throw e;
-        await new Promise(r => setTimeout(r, this.backoff()));
-      }
-    }
-  }
+{
+  "content": "检查项目测试",
+  "model": "gpt-4o",
+  "baseUrl": "https://api.openai.com/v1",
+  "contextLimit": 128000,
+  "idempotencyKey": "<uuid>"
 }
 ```
 
-## Layer 2: StreamBuffer
+响应 `202` 并返回 Run。随后客户端订阅：
 
-buffer 累积处理 TCP 半包/粘包，`TextDecoder({stream:true})` 防止中文 emoji 被截断。
-
-```ts
-class StreamBuffer {
-  private decoder = new TextDecoder();
-  private buffer = '';
-
-  feed(chunk: Uint8Array): string[] {
-    this.buffer += this.decoder.decode(chunk, { stream: true });
-    const lines = this.buffer.split('\n');
-    this.buffer = lines.pop() || '';  // 不完整行保留
-    return lines.filter(l => l.startsWith('data: ')).map(l => l.slice(6));
-  }
-}
+```http
+GET /v1/runs/:runId/events?after=12
+Accept: text/event-stream
 ```
 
-## Layer 3: RequestDedup
-
-每次请求生成唯一 ID，处理时校验是否过期。过期请求 cancel reader + 丢弃数据。
+## 事件
 
 ```ts
-class RequestDedup {
-  private currentRequestId: string | null = null;
-
-  newRequest() {
-    this.currentRequestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    return this.currentRequestId;
-  }
-
-  isStale(requestId: string) {
-    return this.currentRequestId !== null && requestId !== this.currentRequestId;
-  }
-}
+run.started
+assistant.delta
+tool.started
+tool.completed
+run.completed
+run.failed
+run.cancelled
 ```
 
-## Layer 4: BatchRenderer (RAF)
+每个事件包含 `runId`、单调递增的 `seq` 和 `createdAt`。SSE 帧使用 `id: <seq>` 和 JSON `data`；服务端也接受查询参数 `after` 或 `Last-Event-ID`。
 
-文本块入队，同一帧内合并同 msgId 的连续块，一次 store 写入 + 一次 React 重渲染。
+## 服务端流程
 
-```ts
-class BatchRenderer {
-  private pending: Array<{ convId, msgId, chunk }> = [];
-  private rafId: number | null = null;
-
-  append(convId, msgId, chunk) {
-    this.pending.push({ convId, msgId, chunk });
-    if (this.rafId === null) {
-      this.rafId = requestAnimationFrame(() => {
-        this.rafId = null;
-        this.flush();  // 合并 → appendToMessage → onTick
-      });
-    }
-  }
-
-  private flush() {
-    const batches = new Map<string, string>();
-    for (const p of this.pending) {
-      batches.set(p.msgId, (batches.get(p.msgId) || '') + p.chunk);
-    }
-    this.pending = [];
-    for (const [msgId, text] of batches) appendToMessage(convId, msgId, text);
-    this.onTick();
-  }
-}
+```text
+Agent StepEvent
+    │
+    ▼
+RunManager.publish
+    │
+    ├─ SQLite transaction:
+    │    append run_events
+    │    update message/tool/run projection
+    │
+    └─ notify live subscribers
 ```
 
-## Layer 5: createAgentStream 主控器
+新订阅先读取 `seq > after` 的历史事件，然后加入实时订阅集合。终态事件发送完毕后关闭 SSE。
 
-串联四层 + SSE 事件分发。`page.tsx` 只需调用 `stream.send()`：
+## 客户端流程
 
-```ts
-const stream = createAgentStream({
-  onTick: () => { setTick(t => t + 1); refreshConversations(); },
-});
-stream.send({ convId, assistantMsgId, messages, model, apiKey, baseUrl, workdir });
-stream.stop();  // 用户主动停止
-```
+`apps/web/src/lib/api.ts` 的 `streamRunEvents()` 负责：
 
-多会话并发：每会话独立 stream Map，只禁用运行中的会话输入框。
+1. 用当前 `lastSeq` 建立 SSE fetch。
+2. 使用 `TextDecoder` 缓冲跨 chunk 的 SSE 帧。
+3. 解析 `data:` JSON。
+4. 按 `seq` 丢弃重复事件并更新游标。
+5. 网络断开时带最新游标重连。
 
-## 运行中工具可见性
+`page.tsx` 将事件投影到当前 Conversation 快照。页面初始化时重新查询服务端会话列表，发现 `activeRun` 后自动恢复订阅。
 
-工具执行通常在 1-2ms 内完成，需要两端 yield 才能看到 running spinner：
+## 恢复范围
 
-```ts
-// 服务端 — emit action 后等 50ms 再执行工具
-this.emit({ type: "action", ... });
-await new Promise(r => setTimeout(r, 50));
-const result = await tool.run(args);
+| 场景 | 行为 |
+|---|---|
+| 页面刷新 | Agent 继续；页面重放缺失事件 |
+| 标签页关闭后重新打开 | Agent 继续；重新加载快照和事件 |
+| SSE 短暂断网 | 带 `after` 重连 |
+| 重复提交 | `idempotencyKey` 返回原 Run |
+| 显式取消 | AbortController 停止模型请求 |
+| Server/Electron 退出 | Run 下次启动标记为 `interrupted` |
 
-// 客户端 — 收到 tool_call 后 RAF yield
-if (event.type === 'tool_call') await new Promise(r => requestAnimationFrame(r));
-```
+反向代理部署时必须关闭 SSE 响应缓冲并设置足够长的读取超时。

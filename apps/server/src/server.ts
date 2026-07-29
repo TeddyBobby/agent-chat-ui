@@ -11,6 +11,7 @@ export interface ServerOptions {
   database?: string;
   port?: number;
   host?: string;
+  webOrigin?: string;
 }
 
 export function createAppServer(options: ServerOptions = {}) {
@@ -24,7 +25,9 @@ export function createAppServer(options: ServerOptions = {}) {
   const runs = new RunManager(database, credentials);
 
   const server = createServer(async (req, res) => {
-    if (!setCors(req, res)) return json(res, 403, { error: "origin not allowed" });
+    if (!setCors(req, res, options.webOrigin)) {
+      return json(res, 403, { error: "origin not allowed" });
+    }
     if (req.method === "OPTIONS") return send(res, 204);
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
@@ -217,12 +220,18 @@ async function readJson(req: IncomingMessage): Promise<Record<string, any>> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function setCors(req: IncomingMessage, res: ServerResponse): boolean {
+function setCors(
+  req: IncomingMessage,
+  res: ServerResponse,
+  runtimeOrigin?: string,
+): boolean {
   const origin = req.headers.origin;
-  const allowedOrigins = new Set([
-    process.env.PI_AGENT_WEB_ORIGIN || "http://localhost:3001",
-    "http://127.0.0.1:3001",
-  ]);
+  const allowedOrigins = runtimeOrigin
+    ? new Set([runtimeOrigin])
+    : new Set([
+        process.env.PI_AGENT_WEB_ORIGIN || "http://localhost:3001",
+        "http://127.0.0.1:3001",
+      ]);
   if (origin && !allowedOrigins.has(origin)) return false;
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);

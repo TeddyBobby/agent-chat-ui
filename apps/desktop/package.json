@@ -1,15 +1,45 @@
 {
   "name": "@pi-agent/desktop",
   "version": "0.2.0",
+  "description": "Local-first PiAgent desktop application",
+  "author": "TeddyBobby",
   "private": true,
   "main": "main.cjs",
   "scripts": {
-    "build": "echo 'desktop shell uses web and server builds'",
+    "build": "node --check main.cjs",
+    "bundle": "node scripts/prepare-bundle.mjs",
+    "dist:mac": "node scripts/package-mac.mjs",
     "typecheck": "node --check main.cjs",
     "lint": "node --check main.cjs",
     "test": "node --test"
   },
   "dependencies": {
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.12",
     "next": "16.2.10"
+  },
+  "build": {
+    "appId": "com.teddybobby.piagent",
+    "productName": "PiAgent",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "files": [
+      "main.cjs",
+      "generated/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "../../release"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    }
   }
 }

@@ -201,6 +201,31 @@ test("the local server rejects browser requests from untrusted origins", async (
   assert.equal(allowed.headers.get("access-control-allow-origin"), "http://localhost:3001");
 });
 
+test("a desktop runtime origin replaces the development CORS allowlist", async () => {
+  const runtimeOrigin = "http://127.0.0.1:54321";
+  const desktopApp = createAppServer({
+    database: ":memory:",
+    port: 0,
+    host: "127.0.0.1",
+    webOrigin: runtimeOrigin,
+  });
+  const address = await desktopApp.listen();
+  const desktopApiUrl = `http://${address.host}:${address.port}`;
+  try {
+    const runtimeRequest = await fetch(`${desktopApiUrl}/health`, {
+      headers: { Origin: runtimeOrigin },
+    });
+    assert.equal(runtimeRequest.status, 200);
+
+    const developmentRequest = await fetch(`${desktopApiUrl}/health`, {
+      headers: { Origin: "http://localhost:3001" },
+    });
+    assert.equal(developmentRequest.status, 403);
+  } finally {
+    await desktopApp.close();
+  }
+});
+
 async function readEvents(
   runId: string,
   afterSeq: number,

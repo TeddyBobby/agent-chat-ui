@@ -1,6 +1,26 @@
 import { isTerminalRunEvent, type Conversation, type Run, type RunEvent, type StartRunRequest } from "@pi-agent/contracts";
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8787").replace(/\/$/, "");
+function resolveApiUrl() {
+  if (typeof window !== "undefined") {
+    const runtimeUrl = new URLSearchParams(window.location.search).get("api");
+    if (runtimeUrl) {
+      try {
+        const parsed = new URL(runtimeUrl);
+        if (
+          parsed.protocol === "http:" &&
+          (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost")
+        ) {
+          return parsed.origin;
+        }
+      } catch {
+        // Ignore invalid runtime overrides and use the configured API URL.
+      }
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8787";
+}
+
+export const API_URL = resolveApiUrl().replace(/\/$/, "");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
