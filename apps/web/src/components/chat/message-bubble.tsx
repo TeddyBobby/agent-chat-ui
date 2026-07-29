@@ -13,6 +13,7 @@ import {
   type ToolSummaryView,
 } from './tool-call-state';
 import { AgentMark } from './agent-mark';
+import { parseAttachments } from './attachment-message';
 
 // ── Code block copy ──
 
@@ -122,27 +123,6 @@ interface MessageBubbleProps {
   streaming?: boolean;
 }
 
-interface ParsedFile {
-  name: string;
-  size: string;
-  content: string;
-}
-
-function parseFiles(content: string): { files: ParsedFile[]; cleanContent: string } {
-  const files: ParsedFile[] = [];
-  const regex = /<!--\s*file:\s*(.+?)\s*\((.+?)\)\s*-->\s*\n```[\w]*\n([\s\S]*?)```/g;
-  let clean = content;
-  let match;
-
-  while ((match = regex.exec(content)) !== null) {
-    files.push({ name: match[1].trim(), size: match[2].trim(), content: match[3] });
-    clean = clean.replace(match[0], '');
-  }
-
-  clean = clean.replace(/\n{3,}/g, '\n\n').trim();
-  return { files, cleanContent: clean };
-}
-
 const FILE_ICONS: Record<string, string> = {
   ts: 'TS', tsx: 'TS', js: 'JS', jsx: 'JS', json: '{}',
   md: 'MD', css: '#', html: '<>', py: 'PY', yaml: 'Y',
@@ -202,7 +182,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
   }, [desiredToolSummary]);
 
   const { files, cleanContent } = useMemo(
-    () => parseFiles(message.content),
+    () => parseAttachments(message.content),
     [message.content]
   );
 

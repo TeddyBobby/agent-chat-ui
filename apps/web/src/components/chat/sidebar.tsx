@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { API_URL, workspaceApi } from '@/lib/api';
 import type { Conversation } from '@/lib/types';
+import { visibleMessageText } from './attachment-message';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -133,17 +134,18 @@ export function Sidebar({
             {visibleConversations.map((conversation) => {
               const active = conversation.id === activeId;
               const running = runningConvIds.has(conversation.id);
+              const title = visibleMessageText(conversation.title) || '新对话';
               return (
                 <div key={conversation.id} className={`group flex items-center rounded-lg px-2 py-1.5 text-[11px] ${active ? 'bg-white' : 'hover:bg-white/70'}`}>
                   <button type="button" onClick={() => onSelect(conversation.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span className={`h-1.5 w-1.5 rounded-full ${running ? 'animate-pulse bg-[#32ce50]' : 'bg-[#cfcfcf]'}`} />
-                    <span className="truncate">{conversation.title || '新对话'}</span>
+                    <span className="truncate">{title}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => section === 'archived' ? onRestore(conversation.id) : onArchive(conversation.id)}
                     className="ml-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                    aria-label={`${section === 'archived' ? '恢复' : '归档'}会话 ${conversation.title || '新对话'}`}
+                    aria-label={`${section === 'archived' ? '恢复' : '归档'}会话 ${title}`}
                     title={section === 'archived' ? '恢复会话' : '归档会话'}
                   >
                     {section === 'archived' ? '↩' : '…'}
@@ -153,7 +155,7 @@ export function Sidebar({
                       type="button"
                       onClick={() => onDelete(conversation.id)}
                       className="ml-1 text-red-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                      aria-label={`永久删除会话 ${conversation.title || '新对话'}`}
+                      aria-label={`永久删除会话 ${title}`}
                       title="永久删除会话"
                     >
                       ×

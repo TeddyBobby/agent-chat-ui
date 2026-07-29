@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MODELS } from '@/lib/types';
 import { API_URL } from '@/lib/api';
 import { DirectoryPicker } from './directory-picker';
+import { composeAttachmentMessage } from './attachment-message';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -96,13 +97,14 @@ export function ChatInput({
     const hasContent = input.trim() || files.length > 0;
     if (!hasContent || disabled) return;
 
-    let message = input.trim();
-    if (files.length > 0) {
-      const fileBlocks = files.map(f =>
-        `\n\n<!-- file: ${f.name} (${formatSize(f.size)}) -->\n\`\`\`\n${f.content}\n\`\`\``
-      ).join('');
-      message = (message || `Attached ${files.length} file(s)`) + fileBlocks;
-    }
+    const message = composeAttachmentMessage(
+      input,
+      files.map((file) => ({
+        name: file.name,
+        size: formatSize(file.size),
+        content: file.content,
+      })),
+    );
 
     onSend(message);
     setInput('');
