@@ -25,14 +25,14 @@ export function WelcomeDashboard({ onNewChat, onFocusInput, onCreativeImage, onA
       </div>
 
       <div className="absolute left-1/2 top-[200px] -translate-x-1/2 text-center whitespace-nowrap">
-        <h1 className="text-[22px] font-semibold leading-[29px] text-black">你好 <span className="text-[24px]">👋🏻</span> Teddy</h1>
-        <p className="mt-[2px] text-[14px] font-normal leading-[29px] text-[#a9a9a9]">选择一个模型和项目目录，然后告诉我你想做什么。</p>
+        <h1 className="text-[20px] font-semibold leading-[27px] text-black">你好 <span className="text-[22px]">👋🏻</span> Teddy</h1>
+        <p className="mt-[2px] text-[12px] font-normal leading-[25px] text-[#a9a9a9]">选择一个模型和项目目录，然后告诉我你想做什么。</p>
       </div>
 
       <div className="absolute left-1/2 top-[320px] grid h-[129px] w-[686px] origin-top -translate-x-1/2 grid-cols-[217px_229px_217px] gap-[12px] min-[1200px]:max-[1439px]:scale-[0.78] max-[900px]:scale-[0.72]">
         <button type="button" onClick={onNewChat} className="relative overflow-hidden rounded-[12px] bg-[#1a1a1a] text-left">
           <img className="absolute left-[16px] top-[12px] h-[26px] w-[26px]" src="/figma/card-mark.svg" alt="" />
-          <span className="absolute right-[11px] top-[11px] flex h-[24px] w-[82px] items-center justify-center rounded-[20px] bg-[#32ce50] text-[12px] font-medium text-white">新建对话</span>
+          <span className="absolute right-[11px] top-[11px] flex h-[24px] w-[82px] items-center justify-center rounded-[20px] bg-[#32ce50] text-[11px] font-medium text-white">新建对话</span>
           <p className="absolute bottom-[13px] left-[9px] w-[197px] text-[9px] leading-[14px] text-white">
             点击「新建对话」浏览并选择代码目录。每个会话绑定独立工作区，互不干扰。
           </p>
@@ -41,12 +41,12 @@ export function WelcomeDashboard({ onNewChat, onFocusInput, onCreativeImage, onA
         <button type="button" onClick={onCreativeImage} className="relative overflow-hidden rounded-[11px] text-left">
           <img className="absolute inset-0 h-full w-full object-cover" src="/figma/creative-card.png" alt="" />
           <div className="absolute bottom-0 left-0 h-[46px] w-full bg-black/60" />
-          <span className="absolute bottom-[9px] left-[17px] text-[12px] font-medium leading-[29px] text-white">图像提示词</span>
+          <span className="absolute bottom-[9px] left-[17px] text-[11px] font-medium leading-[29px] text-white">图像提示词</span>
           <span className="absolute bottom-[9px] right-[9px] text-[10px] font-light leading-[29px] text-white">创意构思</span>
         </button>
 
         <button type="button" onClick={onFocusInput} className="relative rounded-[12px] border border-[#cacaca] bg-white text-left">
-          <span className="absolute left-[14px] top-[4px] text-[12px] font-medium leading-[29px] text-[#0088ff]">发任务</span>
+          <span className="absolute left-[14px] top-[4px] text-[11px] font-medium leading-[29px] text-[#0088ff]">发任务</span>
           <img className="absolute right-[10px] top-[8px] h-[23px] w-[23px]" src="/figma/icon-plus.svg" alt="" />
           <p className="absolute bottom-[13px] left-[14px] w-[197px] text-[9px] leading-[14px] text-[#727272]">
             告诉 AI 你的需求<br />修 Bug、加功能、重构代码。<br />流式输出实时反馈，工具调用全程可见。

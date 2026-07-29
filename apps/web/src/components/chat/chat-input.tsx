@@ -155,19 +155,19 @@ export function ChatInput({
         {showSettings && (
           <div className={`${figmaPlacement ? 'absolute bottom-[168px] left-6 right-6' : 'mb-3'} rounded-[18px] border border-[#e7e7e3] bg-white p-4 shadow-[0_12px_32px_rgba(0,0,0,0.06)] dark:border-zinc-700 dark:bg-zinc-900 animate-fade-in-up`}>
             <div className="grid grid-cols-2 gap-2.5">
-              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+              <label className="text-[11px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 模型
                 <select
                   value={selectedModel}
                   onChange={(e) => onModelChange(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500/50 transition-colors flex-1 min-w-0"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[11px] text-gray-800 dark:text-zinc-200 focus:outline-none focus:border-indigo-500/50 transition-colors flex-1 min-w-0"
                 >
                   {MODELS.map((m) => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </label>
-              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+              <label className="text-[11px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 密钥
                 <input
                   type="password"
@@ -176,7 +176,7 @@ export function ChatInput({
                   onChange={(e) => onApiKeyChange(e.target.value)}
                   onBlur={() => void onApiKeyCommit().catch(() => undefined)}
                   placeholder={apiKeyConfigured ? "已安全保存，输入可替换" : "sk-..."}
-                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[11px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                 />
                 {apiKey.trim() && (
                   <button
@@ -199,14 +199,14 @@ export function ChatInput({
                   </button>
                 )}
               </label>
-              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+              <label className="text-[11px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 API 地址
                 <input
                   type="text"
                   value={baseUrl}
                   onChange={(e) => onBaseUrlChange(e.target.value)}
                   placeholder="https://api.openai.com/v1"
-                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[11px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                 />
                 <button
                   type="button"
@@ -217,7 +217,7 @@ export function ChatInput({
                   {testing ? '测试中...' : '测试连接'}
                 </button>
               </label>
-              <label className="text-[12px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
+              <label className="text-[11px] font-medium text-gray-500 dark:text-zinc-400 flex items-center gap-2">
                 项目
                 <div className="flex gap-1.5 flex-1 min-w-0">
                   <input
@@ -225,7 +225,7 @@ export function ChatInput({
                     value={workdir}
                     onChange={(e) => onWorkdirChange(e.target.value)}
                     placeholder="~/projects/my-app"
-                    className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[12px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 text-[11px] text-gray-800 dark:text-zinc-200 flex-1 min-w-0 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono"
                   />
                   <DirectoryPicker value={workdir} onChange={onWorkdirChange} />
                 </div>
@@ -324,13 +324,13 @@ export function ChatInput({
                 : '输入消息，@引用文件，$引用 Skills，描述你想完成的任务...'}
             disabled={disabled}
             rows={3}
-            className={`block w-full resize-none bg-transparent px-[10px] text-[15px] leading-[24px] text-[#33332f] placeholder-[#a9a9a9] focus:outline-none disabled:opacity-40 dark:text-zinc-200 dark:placeholder-zinc-600 ${figmaPlacement ? 'h-[94px]' : 'min-h-[76px]'}`}
+            className={`block w-full resize-none bg-transparent px-[10px] text-[14px] leading-[22px] text-[#33332f] placeholder-[#a9a9a9] focus:outline-none disabled:opacity-40 dark:text-zinc-200 dark:placeholder-zinc-600 ${figmaPlacement ? 'h-[94px]' : 'min-h-[76px]'}`}
           />
 
           <div className="mt-[3px] flex items-center gap-[8px]">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`flex h-[30px] min-w-[157px] flex-shrink-0 items-center rounded-[30px] border border-[#cacaca] px-[8px] text-[12px] font-medium text-[#898989] shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-all ${
+              className={`flex h-[30px] min-w-[157px] flex-shrink-0 items-center rounded-[30px] border border-[#cacaca] px-[8px] text-[11px] font-medium text-[#898989] shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-all ${
                 showSettings
                   ? 'bg-[#f5f5f5]'
                   : 'bg-white hover:bg-[#f7f7f7] dark:bg-zinc-800 dark:text-zinc-400'

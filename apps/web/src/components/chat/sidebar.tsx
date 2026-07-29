@@ -83,22 +83,22 @@ export function Sidebar({
       </button>
 
       <nav className="absolute left-[27px] top-[108px] h-[172px] w-[237px] rounded-[16px] bg-white px-[25px] py-[10px]">
-        <button type="button" onClick={() => setUtility((current) => current === 'skills' ? null : 'skills')} className="flex h-[47px] w-full items-center gap-[14px] text-[16px] font-medium">
+        <button type="button" onClick={() => setUtility((current) => current === 'skills' ? null : 'skills')} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.skills} alt="" />
           Skills
         </button>
-        <button type="button" onClick={() => setUtility((current) => current === 'mcp' ? null : 'mcp')} className="flex h-[47px] w-full items-center gap-[14px] text-[16px] font-medium">
+        <button type="button" onClick={() => setUtility((current) => current === 'mcp' ? null : 'mcp')} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.mcp} alt="" />
           MCP
         </button>
-        <button type="button" onClick={onNewChat} className="flex h-[47px] w-full items-center gap-[14px] text-[16px] font-medium">
+        <button type="button" onClick={onNewChat} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.newChat} alt="" />
           新对话
         </button>
       </nav>
 
       <div className="absolute left-[53px] right-[30px] top-[316px]">
-        <button type="button" onClick={() => setUtility((current) => current === 'workspace' ? null : 'workspace')} className="flex h-[47px] w-full items-center text-[14px] text-[#848383]">
+        <button type="button" onClick={() => setUtility((current) => current === 'workspace' ? null : 'workspace')} className="flex h-[47px] w-full items-center text-[12px] text-[#848383]">
           <img className="mr-[13px] h-[14px] w-[14px]" src={FIGMA_ICON.workspace} alt="" />
           工作空间
           <img className="ml-[13px] h-[5px] w-[9px] -rotate-90" src="/figma/caret-down.svg" alt="" />
@@ -106,7 +106,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => setSection((current) => current === 'recent' ? 'none' : 'recent')}
-          className="flex h-[47px] w-full items-center text-[14px] text-[#848383]"
+          className="flex h-[47px] w-full items-center text-[12px] text-[#848383]"
         >
           <img className="mr-[13px] h-[13px] w-[13px]" src={FIGMA_ICON.recent} alt="" />
           最近会话
@@ -185,7 +185,7 @@ export function Sidebar({
         title={apiKeyConfigured ? '登出并删除已保存的 API Key' : '尚未保存 API Key'}
       >
         <img className="h-[30px] w-[30px]" src="/figma/avatar.svg" alt="" />
-        <span className="ml-[10px] text-[14px] font-medium">登出</span>
+        <span className="ml-[10px] text-[12px] font-medium">登出</span>
         <img className="ml-auto h-[18px] w-[18px]" src="/figma/icon-logout.svg" alt="" />
       </button>
     </aside>

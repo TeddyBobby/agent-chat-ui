@@ -247,7 +247,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                       <span className="text-[10px] font-bold text-gray-500 dark:text-zinc-500 bg-gray-100 dark:bg-zinc-800 rounded px-1 py-0.5 min-w-[20px] text-center">
                         {meta.icon}
                       </span>
-                      <span className="text-[12px] font-medium text-gray-700 dark:text-zinc-300 font-mono truncate">
+                      <span className="text-[11px] font-medium text-gray-700 dark:text-zinc-300 font-mono truncate">
                         {f.name}
                       </span>
                       <span className="text-[10px] text-gray-400 dark:text-zinc-600 ml-auto flex-shrink-0">
@@ -279,7 +279,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
           {/* Message text */}
           {isUser ? (
             cleanContent && !/^Attached \d+ file/.test(cleanContent) ? (
-              <div className="text-[15px] leading-relaxed text-gray-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
+              <div className="text-[14px] leading-relaxed text-gray-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
                 {cleanContent}
               </div>
             ) : null
@@ -332,7 +332,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.15s' }} />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.3s' }} />
               </div>
-              <span className="text-[12px] text-gray-400 dark:text-zinc-500">Working...</span>
+              <span className="text-[11px] text-gray-400 dark:text-zinc-500">Working...</span>
             </div>
           ) : streaming && !hasMarkdown && totalTools === 0 ? (
             <div className="flex items-center gap-2">
@@ -341,7 +341,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.15s' }} />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.3s' }} />
               </div>
-              <span className="text-[12px] text-gray-400 dark:text-zinc-500">Thinking...</span>
+              <span className="text-[11px] text-gray-400 dark:text-zinc-500">Thinking...</span>
             </div>
           ) : null}
 

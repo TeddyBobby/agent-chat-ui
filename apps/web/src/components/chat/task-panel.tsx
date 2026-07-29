@@ -235,7 +235,7 @@ function BrowserTab({
       }`}
       title={title || label}
     >
-      <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center px-3 text-[11px]">
+      <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center px-3 text-[10px]">
         <span className="truncate">{label}</span>
         {Boolean(badge) && (
           <span className="ml-1.5 rounded-full bg-[#32ce50] px-1.5 text-[8px] text-white">{badge}</span>
@@ -270,7 +270,7 @@ function FileTree({ entries, truncated, onOpen }: { entries: WorkspaceEntry[]; t
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-[11px] text-[#555] outline-none placeholder:text-[#aaa] dark:text-zinc-200"
+            className="min-w-0 flex-1 bg-transparent text-[10px] text-[#555] outline-none placeholder:text-[#aaa] dark:text-zinc-200"
             placeholder="筛选文件…"
             aria-label="筛选文件"
           />
@@ -401,7 +401,7 @@ function MarkdownFile({ content }: { content: string }) {
 
 function CodeFile({ content, language }: { content: string; language: string }) {
   return (
-    <div className="workspace-code min-h-0 flex-1 overflow-auto bg-[#0d1117]">
+    <div className="workspace-code min-h-0 flex-1 overflow-auto bg-[#f5f5f3] dark:bg-[#222]">
       <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
         {fencedCode(content, language)}
       </ReactMarkdown>
@@ -411,8 +411,8 @@ function CodeFile({ content, language }: { content: string; language: string }) 
 
 function PlainTextFile({ content }: { content: string }) {
   return (
-    <pre className="!m-0 min-h-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#fbfbfb] p-3">
-      <code className="!bg-transparent !p-0 !text-[10px] !leading-5 !text-[#555]">{content}</code>
+    <pre className="!m-0 min-h-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#f7f7f5] p-3 dark:!bg-[#222]">
+      <code className="!bg-transparent !p-0 !text-[10px] !leading-5 !text-[#555] dark:!text-zinc-300">{content}</code>
     </pre>
   );
 }
@@ -451,7 +451,7 @@ function ReviewPreview({
         </button>
       </div>
       <div className="flex min-h-0 flex-1">
-        <pre className="!m-0 min-h-0 min-w-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#fbfbfb] p-3 text-[9px] leading-4 dark:!bg-[#111]">
+        <pre className="!m-0 min-h-0 min-w-0 flex-1 overflow-auto !rounded-none !border-0 !bg-[#f7f7f5] p-3 text-[9px] leading-4 dark:!bg-[#222]">
           {review.patchTruncated && (
             <code className="mb-2 block rounded bg-amber-50 p-2 !text-[9px] !text-amber-700">
               未跟踪文件的 diff 超过 2MB，已截断显示。
