@@ -345,7 +345,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
             <div className="mt-2">
               <button
                 onClick={() => setShowTools(!showTools)}
-                className={`flex h-7 w-full max-w-[440px] items-center gap-1.5 rounded-md px-1 text-[11px] transition-colors ${
+                className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-md px-1 text-[11px] transition-colors ${
                   toolSummary.running
                     ? 'text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200'
                     : 'text-gray-400 hover:text-gray-600 dark:text-zinc-500 dark:hover:text-zinc-400'
@@ -360,7 +360,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                   <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border-2 border-amber-400/40 border-t-amber-500" />
                 )}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-left">{toolSummary.text}</span>
+                <span className="max-w-[360px] truncate text-left">{toolSummary.text}</span>
                 <span className="flex h-3 w-3 flex-shrink-0 items-center justify-center">
                 {!toolSummary.running && completedTools === totalTools && totalTools > 0 && (
                   <span className="text-emerald-500">✓</span>
