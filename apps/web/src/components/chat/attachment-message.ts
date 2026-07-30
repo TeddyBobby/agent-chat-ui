@@ -4,7 +4,27 @@ export interface MessageAttachment {
   content: string;
 }
 
+export const BINARY_ATTACHMENT_PLACEHOLDER = '[二进制附件：当前仅展示文件名和大小，不读取内容]';
+
+export const PREVIEWABLE_ATTACHMENT_EXTENSIONS = new Set([
+  'ts', 'tsx', 'js', 'jsx', 'json', 'md', 'css', 'html', 'htm',
+  'py', 'yaml', 'yml', 'toml', 'sh', 'bash', 'zsh', 'sql',
+  'graphql', 'prisma', 'rs', 'go', 'java', 'c', 'cpp', 'h',
+  'rb', 'php', 'swift', 'kt', 'dart', 'vue', 'svelte',
+  'cfg', 'conf', 'ini', 'log', 'txt', 'env', 'gitignore',
+  'xml', 'csv', 'svg', 'scss', 'less',
+]);
+
 const ATTACHMENT_END = '\n<!-- /attachment -->';
+
+export function attachmentExtension(name: string) {
+  return name.split('.').pop()?.toLowerCase() || '';
+}
+
+export function isTextAttachment(name: string, mimeType = '') {
+  if (mimeType.startsWith('text/')) return true;
+  return PREVIEWABLE_ATTACHMENT_EXTENSIONS.has(attachmentExtension(name));
+}
 
 export function composeAttachmentMessage(
   visibleContent: string,

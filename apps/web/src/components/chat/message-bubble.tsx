@@ -13,7 +13,11 @@ import {
   type ToolSummaryView,
 } from './tool-call-state';
 import { AgentMark } from './agent-mark';
-import { parseAttachments } from './attachment-message';
+import {
+  attachmentExtension,
+  parseAttachments,
+  PREVIEWABLE_ATTACHMENT_EXTENSIONS,
+} from './attachment-message';
 
 // ── Code block copy ──
 
@@ -128,23 +132,28 @@ const FILE_ICONS: Record<string, string> = {
   md: 'MD', css: '#', html: '<>', py: 'PY', yaml: 'Y',
   yml: 'Y', toml: 'T', sh: '$>', bash: '$>', sql: 'DB',
   rs: 'RS', go: 'GO', java: 'JV', vue: 'V', svg: 'SVG',
+  pdf: 'PDF', doc: 'DOC', docx: 'DOC', xls: 'XLS', xlsx: 'XLS',
+  ppt: 'PPT', pptx: 'PPT', png: 'IMG', jpg: 'IMG', jpeg: 'IMG',
+  gif: 'IMG', webp: 'IMG', zip: 'ZIP', rar: 'RAR', '7z': '7Z',
 };
 
-const PREVIEWABLE = new Set([
-  'ts', 'tsx', 'js', 'jsx', 'json', 'md', 'css', 'html', 'htm',
-  'py', 'yaml', 'yml', 'toml', 'sh', 'bash', 'zsh', 'sql',
-  'graphql', 'prisma', 'rs', 'go', 'java', 'c', 'cpp', 'h',
-  'rb', 'php', 'swift', 'kt', 'dart', 'vue', 'svelte',
-  'cfg', 'conf', 'ini', 'log', 'txt', 'env', 'gitignore',
-  'xml', 'csv', 'svg', 'scss', 'less',
-]);
-
 function getFileMeta(name: string) {
-  const ext = name.split('.').pop()?.toLowerCase() || '';
+  const ext = attachmentExtension(name);
   return {
-    icon: FILE_ICONS[ext] || ext.toUpperCase().slice(0, 2) || '?',
+    icon: FILE_ICONS[ext] || ext.toUpperCase().slice(0, 3) || '?',
     ext,
   };
+}
+
+function fileIconClass(ext: string) {
+  if (ext === 'pdf') return 'bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-300';
+  if (['xls', 'xlsx'].includes(ext)) return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300';
+  if (['doc', 'docx'].includes(ext)) return 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300';
+  if (['ppt', 'pptx'].includes(ext)) return 'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-300';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'].includes(ext)) {
+    return 'bg-pink-50 text-pink-500 dark:bg-pink-500/10 dark:text-pink-300';
+  }
+  return 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-zinc-400';
 }
 
 export function MessageBubble({ message, streaming }: MessageBubbleProps) {
@@ -218,13 +227,13 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
             <div className="mb-2.5 space-y-1.5">
               {files.map((f, i) => {
                 const meta = getFileMeta(f.name);
-                const showPreview = PREVIEWABLE.has(meta.ext);
+                const showPreview = PREVIEWABLE_ATTACHMENT_EXTENSIONS.has(meta.ext);
                 const lines = showPreview ? f.content.split('\n') : [];
                 return (
                   <div key={i} className="border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900/50">
                     {/* File header */}
                     <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 dark:border-zinc-800/50 bg-gray-50 dark:bg-zinc-900/80">
-                      <span className="text-[10px] font-bold text-gray-500 dark:text-zinc-500 bg-gray-100 dark:bg-zinc-800 rounded px-1 py-0.5 min-w-[20px] text-center">
+                      <span className={`flex h-7 min-w-7 items-center justify-center rounded-md px-1 text-[8px] font-bold ${fileIconClass(meta.ext)}`}>
                         {meta.icon}
                       </span>
                       <span className="text-[11px] font-medium text-gray-700 dark:text-zinc-300 font-mono truncate">

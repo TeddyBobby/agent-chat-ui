@@ -5,7 +5,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MODELS } from '@/lib/types';
 import { API_URL } from '@/lib/api';
 import { DirectoryPicker } from './directory-picker';
-import { composeAttachmentMessage } from './attachment-message';
+import {
+  BINARY_ATTACHMENT_PLACEHOLDER,
+  composeAttachmentMessage,
+  isTextAttachment,
+} from './attachment-message';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -123,6 +127,14 @@ export function ChatInput({
     const newFiles: AttachedFile[] = [];
 
     for (const file of selected) {
+      if (!isTextAttachment(file.name, file.type)) {
+        newFiles.push({
+          name: file.name,
+          content: BINARY_ATTACHMENT_PLACEHOLDER,
+          size: file.size,
+        });
+        continue;
+      }
       if (file.size > 500 * 1024) {
         newFiles.push({ name: file.name, content: `[文件过大: ${formatSize(file.size)}]`, size: file.size });
         continue;
@@ -311,7 +323,7 @@ export function ChatInput({
             multiple
             onChange={handleFilePick}
             className="hidden"
-            accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.css,.html,.py,.yaml,.yml,.toml,.xml,.csv,.env,.gitignore,.sh,.bash,.zsh,.sql,.graphql,.prisma,.rs,.go,.java,.c,.cpp,.h,.rb,.php,.swift,.kt,.dart,.vue,.svelte,.cfg,.conf,.ini,.log"
+            accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.css,.html,.py,.yaml,.yml,.toml,.xml,.csv,.env,.gitignore,.sh,.bash,.zsh,.sql,.graphql,.prisma,.rs,.go,.java,.c,.cpp,.h,.rb,.php,.swift,.kt,.dart,.vue,.svelte,.cfg,.conf,.ini,.log,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.bmp,.ico,.zip,.rar,.7z,.tar,.gz"
           />
           <textarea
             ref={textareaRef}
