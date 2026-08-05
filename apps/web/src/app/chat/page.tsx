@@ -8,6 +8,7 @@ import { ChatInput } from "@/components/chat/chat-input";
 import { DirectoryPicker } from "@/components/chat/directory-picker";
 import { WelcomeDashboard } from "@/components/chat/welcome-dashboard";
 import { TaskPanel } from "@/components/chat/task-panel";
+import { ErrorBoundary } from "@/components/error-boundary";
 import type { Conversation, Run, RunEvent } from "@/lib/types";
 import { MODELS } from "@/lib/types";
 import { conversationApi, credentialApi, streamRunEvents } from "@/lib/api";
@@ -285,19 +286,21 @@ export default function ChatPage() {
             </svg>
           </button>
         )}
-        {(activeConversation?.messages.length || 0) > 0 ? (
-          <MessageList
-            messages={activeConversation?.messages || []}
-            streaming={Boolean(activeConversation?.activeRun)}
-          />
-        ) : (
-          <WelcomeDashboard
-            onNewChat={() => setPickerPurpose("new")}
-            onFocusInput={() => document.getElementById("agent-chat-composer")?.focus()}
-            onCreativeImage={() => queuePrompt("请帮我把下面的想法整理成专业、可直接用于图像生成模型的提示词。请补充构图、光线、色彩、镜头和风格：")}
-            onAttachFile={() => document.getElementById("agent-chat-file-input")?.click()}
-          />
-        )}
+        <ErrorBoundary>
+          {(activeConversation?.messages.length || 0) > 0 ? (
+            <MessageList
+              messages={activeConversation?.messages || []}
+              streaming={Boolean(activeConversation?.activeRun)}
+            />
+          ) : (
+            <WelcomeDashboard
+              onNewChat={() => setPickerPurpose("new")}
+              onFocusInput={() => document.getElementById("agent-chat-composer")?.focus()}
+              onCreativeImage={() => queuePrompt("请帮我把下面的想法整理成专业、可直接用于图像生成模型的提示词。请补充构图、光线、色彩、镜头和风格：")}
+              onAttachFile={() => document.getElementById("agent-chat-file-input")?.click()}
+            />
+          )}
+        </ErrorBoundary>
         <ChatInput
           onSend={(content) => void handleSend(content)}
           onModelChange={setModel}

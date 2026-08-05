@@ -146,10 +146,15 @@ export async function streamRunEvents(input: {
       }
       if (input.signal.aborted) return;
       throw new Error("event stream disconnected");
-    } catch {
+    } catch (err) {
       if (input.signal.aborted) return;
       retries += 1;
-      await new Promise((resolve) => setTimeout(resolve, Math.min(1_000 * 2 ** retries, 10_000)));
+      const delay = Math.min(1_000 * 2 ** retries, 10_000);
+      console.error(
+        `[streamRunEvents] SSE error (run=${input.runId}, retry=${retries}, delay=${delay}ms):`,
+        err instanceof Error ? err.message : err,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
