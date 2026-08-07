@@ -323,11 +323,13 @@ export function ChatInput({
             multiple
             onChange={handleFilePick}
             className="hidden"
+            aria-label="选择文件附件"
             accept=".txt,.md,.json,.js,.ts,.tsx,.jsx,.css,.html,.py,.yaml,.yml,.toml,.xml,.csv,.env,.gitignore,.sh,.bash,.zsh,.sql,.graphql,.prisma,.rs,.go,.java,.c,.cpp,.h,.rb,.php,.swift,.kt,.dart,.vue,.svelte,.cfg,.conf,.ini,.log,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp,.bmp,.ico,.zip,.rar,.7z,.tar,.gz"
           />
           <textarea
             ref={textareaRef}
             id="agent-chat-composer"
+            aria-label="输入消息"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -344,6 +346,7 @@ export function ChatInput({
           <div className="mt-[3px] flex items-center gap-[8px]">
             <button
               onClick={() => setShowSettings(!showSettings)}
+              aria-label={showSettings ? "关闭设置面板" : "打开设置面板"}
               className={`flex h-[30px] min-w-[157px] flex-shrink-0 items-center rounded-[30px] border border-[#cacaca] px-[8px] text-[11px] font-medium text-[#898989] shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-all ${
                 showSettings
                   ? 'bg-[#f5f5f5]'
@@ -358,6 +361,7 @@ export function ChatInput({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
+              aria-label="添加文件"
               className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[30px] border border-[#cacaca] bg-white shadow-[0_0_13px_2px_rgba(209,211,212,0.23)] transition-colors hover:bg-[#f7f7f7] disabled:opacity-20 dark:bg-zinc-800"
               title="添加文件"
             >
@@ -376,6 +380,7 @@ export function ChatInput({
             <button
               onClick={handleSubmit}
               disabled={disabled || (!input.trim() && files.length === 0)}
+              aria-label="发送消息"
               className="ml-auto flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-[#ececed] transition-all hover:bg-[#dedede] disabled:cursor-not-allowed dark:disabled:bg-zinc-800"
               title="发送"
             >

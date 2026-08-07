@@ -57,6 +57,7 @@ function CodeBlockHeader({ language, codeText }: { language: string | null; code
       </span>
       <button
         onClick={handleCopy}
+        aria-label={copied ? "已复制" : "复制代码"}
         className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 transition-colors"
       >
         {copied ? (

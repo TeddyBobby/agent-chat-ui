@@ -104,6 +104,7 @@ export function MessageList({ messages, streaming }: MessageListProps) {
             setShowScrollBtn(false);
             scrollToBottom(true);
           }}
+          aria-label="滚动到最新消息"
           className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-400 dark:text-zinc-400 hover:text-gray-600 dark:hover:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-700 shadow-lg flex items-center justify-center transition-all animate-fade-in-up"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
