@@ -257,9 +257,11 @@ export function ChatInput({
                   : 'bg-red-50 dark:bg-red-500/5 border border-red-200 dark:border-red-500/20'
               }`}>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className={testResult.success ? 'text-emerald-600' : 'text-red-500'}>
-                    {testResult.success ? '✅' : '❌'}
-                  </span>
+                  {testResult.success ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  )}
                   <span className={`font-medium ${testResult.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
                     {testResult.success ? '连接成功' : '连接失败'}
                   </span>

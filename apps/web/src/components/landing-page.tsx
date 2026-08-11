@@ -90,19 +90,43 @@ export function LandingPage({ onNewChat, onSelectModel }: LandingPageProps) {
             能力
           </h2>
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { icon: '📖', title: '读写文件', desc: '读取、创建、编辑项目中的任意文件' },
-              { icon: '🔍', title: '搜索代码', desc: '正则搜索代码库，快速定位' },
-              { icon: '⚡', title: '执行命令', desc: '运行 shell 命令、安装依赖、启动服务' },
-              { icon: '🔄', title: '多会话', desc: '同时处理多个项目，互不干扰' },
-              { icon: '💬', title: '流式输出', desc: '逐 token 实时渲染，即时反馈' },
-              { icon: '📦', title: '归档管理', desc: '归档历史对话，随时恢复' },
-            ].map((f) => (
+            {([
+              {
+                title: '读写文件',
+                desc: '读取、创建、编辑项目中的任意文件',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+              },
+              {
+                title: '搜索代码',
+                desc: '正则搜索代码库，快速定位',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+              },
+              {
+                title: '执行命令',
+                desc: '运行 shell 命令、安装依赖、启动服务',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>,
+              },
+              {
+                title: '多会话',
+                desc: '同时处理多个项目，互不干扰',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+              },
+              {
+                title: '流式输出',
+                desc: '逐 token 实时渲染，即时反馈',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+              },
+              {
+                title: '归档管理',
+                desc: '归档历史对话，随时恢复',
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+              },
+            ]).map((f) => (
               <div
                 key={f.title}
                 className="flex items-start gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors"
               >
-                <span className="text-base flex-shrink-0 mt-0.5">{f.icon}</span>
+                <span className="flex-shrink-0 mt-0.5 text-indigo-500">{f.icon}</span>
                 <div>
                   <div className="text-[13px] font-medium text-gray-700 dark:text-zinc-300">{f.title}</div>
                   <div className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">{f.desc}</div>

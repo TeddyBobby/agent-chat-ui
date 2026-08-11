@@ -98,7 +98,7 @@ export default function ChatPage() {
               : tool),
           };
         }
-        if (event.type === "run.failed") return { ...message, content: `${message.content}\n\n❌ ${event.message}` };
+        if (event.type === "run.failed") return { ...message, content: `${message.content}\n\n---\n**运行失败:** ${event.message}` };
         return message;
       });
       const terminal = isTerminalRunEvent(event);
