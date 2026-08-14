@@ -16,11 +16,17 @@ let modelServer: ReturnType<typeof createServer>;
 let modelUrl: string;
 let modelCalls = 0;
 const modelAuthorizations: Array<string | undefined> = [];
+const modelBodies: Array<Record<string, unknown>> = [];
 
 before(async () => {
   modelServer = createServer((req, res) => {
     modelCalls += 1;
     modelAuthorizations.push(req.headers.authorization);
+    let raw = "";
+    req.on("data", (chunk) => (raw += chunk));
+    req.on("end", () => {
+      try { modelBodies.push(JSON.parse(raw)); } catch { modelBodies.push({}); }
+    });
     if (req.url?.includes("/fail/")) {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "synthetic model failure" }));
@@ -223,6 +229,49 @@ test("a desktop runtime origin replaces the development CORS allowlist", async (
     assert.equal(developmentRequest.status, 403);
   } finally {
     await desktopApp.close();
+  }
+});
+
+test("multi-turn history is sent as native OpenAI messages, not a wrapped text block", async () => {
+  const conversation = await post("/v1/conversations", {
+    model: "fake-model",
+    workdir: process.cwd(),
+  });
+  const firstRun = await post(`/v1/conversations/${conversation.id}/runs`, {
+    content: "first message",
+    model: "fake-model",
+    baseUrl: modelUrl,
+    idempotencyKey: "multi-turn-first",
+  }) as Run;
+  await waitFor(async () => (await get(`/v1/runs/${firstRun.id}`) as Run).status === "completed");
+
+  const indexBeforeSecond = modelBodies.length;
+  const secondRun = await post(`/v1/conversations/${conversation.id}/runs`, {
+    content: "second message",
+    model: "fake-model",
+    baseUrl: modelUrl,
+    idempotencyKey: "multi-turn-second",
+  }) as Run;
+  await waitFor(async () => (await get(`/v1/runs/${secondRun.id}`) as Run).status === "completed");
+
+  const body = modelBodies[indexBeforeSecond] as { messages?: Array<{ role: string; content: string }> };
+  assert.ok(body?.messages, "the model call should include a messages array");
+  const messages = body.messages;
+
+  // 历史必须是标准 role/content 消息，不能是包装成「[用户]: ...[AI]: ...」的文本块
+  assert.equal(messages[0].role, "system");
+  assert.deepEqual(
+    messages.slice(1).map((message) => message.role),
+    ["user", "assistant", "user"],
+  );
+  assert.equal(messages[1].content, "first message");
+  assert.equal(messages[2].content, "后台任务继续完成");
+  assert.equal(messages[3].content, "second message");
+  for (const message of messages) {
+    assert.ok(
+      !message.content.includes("以下是之前的对话历史"),
+      "history must not be wrapped in a natural-language text block",
+    );
   }
 });
 

@@ -116,18 +116,18 @@ export class PiAgent {
       { role: "system", content: buildPrompt(toolList, this.config.systemPrompt) },
     ];
 
-    // 注入对话历史（不包含最后一次用户消息，那由 task 提供）
+    // 注入对话历史为标准 OpenAI 多轮消息（不含最后一次用户消息，那由 task 提供）。
+    // 关键：不能把历史拼成「[用户]: ... [AI]: ...」自然语言块再包进一条 user 消息 ——
+    // 小模型会把块里的旧消息当成当前指令，导致重复上一轮回复（"上一条回复重新发了"）。
+    // 必须逐条 push 成标准 role/content 消息，模型才能原生理解多轮对话。
     if (history && history.length > 0) {
-      const contextMsg = history
-        .map((m) => `[${m.role === "user" ? "用户" : "AI"}]: ${m.content}`)
-        .join("\n\n");
-      messages.push({
-        role: "user",
-        content: `以下是之前的对话历史，供你了解上下文：\n\n${contextMsg}\n\n---\n当前任务：${task}`,
-      });
-    } else {
-      messages.push({ role: "user", content: task });
+      for (const m of history) {
+        // 过滤空 assistant 消息：中断/失败的 run 可能留下空回复，会误导模型
+        if (m.role === "assistant" && !m.content?.trim()) continue;
+        messages.push({ role: m.role, content: m.content });
+      }
     }
+    messages.push({ role: "user", content: task });
 
     const openaiTools = toolList.map((t) => ({
       type: "function" as const,
