@@ -84,11 +84,11 @@ export function Sidebar({
       </button>
 
       <nav className="absolute left-[27px] top-[108px] h-[172px] w-[237px] rounded-[16px] bg-white px-[25px] py-[10px]">
-        <button type="button" onClick={() => setUtility((current) => current === 'skills' ? null : 'skills')} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
+        <button type="button" aria-expanded={utility === 'skills'} onClick={() => setUtility((current) => current === 'skills' ? null : 'skills')} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.skills} alt="" />
           Skills
         </button>
-        <button type="button" onClick={() => setUtility((current) => current === 'mcp' ? null : 'mcp')} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
+        <button type="button" aria-expanded={utility === 'mcp'} onClick={() => setUtility((current) => current === 'mcp' ? null : 'mcp')} className="flex h-[47px] w-full items-center gap-[12px] text-[14px] font-medium">
           <img className="h-[16px] w-[16px]" src={FIGMA_ICON.mcp} alt="" />
           MCP
         </button>
@@ -99,13 +99,14 @@ export function Sidebar({
       </nav>
 
       <div className="absolute left-[53px] right-[30px] top-[316px]">
-        <button type="button" onClick={() => setUtility((current) => current === 'workspace' ? null : 'workspace')} className="flex h-[47px] w-full items-center text-[12px] text-[#848383]">
+        <button type="button" aria-expanded={utility === 'workspace'} onClick={() => setUtility((current) => current === 'workspace' ? null : 'workspace')} className="flex h-[47px] w-full items-center text-[12px] text-[#848383]">
           <img className="mr-[13px] h-[14px] w-[14px]" src={FIGMA_ICON.workspace} alt="" />
           工作空间
           <img className="ml-[13px] h-[5px] w-[9px] -rotate-90" src="/figma/caret-down.svg" alt="" />
         </button>
         <button
           type="button"
+          aria-expanded={section === 'recent'}
           onClick={() => setSection((current) => current === 'recent' ? 'none' : 'recent')}
           className="flex h-[47px] w-full items-center text-[12px] text-[#848383]"
         >
@@ -120,6 +121,7 @@ export function Sidebar({
         </button>
         <button
           type="button"
+          aria-expanded={section === 'archived'}
           onClick={() => setSection((current) => current === 'archived' ? 'none' : 'archived')}
           className="ml-[27px] mt-1 text-[10px] text-[#aaa]"
         >

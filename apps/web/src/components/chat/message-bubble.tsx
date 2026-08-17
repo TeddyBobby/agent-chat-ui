@@ -339,6 +339,9 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
           {totalTools > 0 && (
             <div className="mt-2">
               <button
+                type="button"
+                aria-expanded={showTools}
+                aria-controls={`tool-calls-${message.id}`}
                 onClick={() => setToolDisclosure({ expanded: !showTools, taskRunning: Boolean(streaming) })}
                 className={`inline-flex h-7 max-w-full items-center gap-1 rounded-md px-1 text-[11px] transition-colors ${
                   toolSummary.running
@@ -360,7 +363,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
               </button>
 
               {showTools && (
-                <div className="mt-1.5 space-y-1">
+                <div id={`tool-calls-${message.id}`} className="mt-1.5 space-y-1">
                   {message.toolCalls!.map((tc) => (
                     <ToolCallCard key={tc.id} toolCall={tc} />
                   ))}

@@ -86,7 +86,14 @@ export function MessageList({ messages, streaming }: MessageListProps) {
 
   return (
     <div className="flex-1 relative overflow-hidden">
-      <div ref={containerRef} className="absolute inset-0 overflow-y-auto">
+      <div
+        ref={containerRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        aria-label="对话消息"
+        className="absolute inset-0 overflow-y-auto"
+      >
         {messages.map((msg, i) => (
           <MessageBubble
             key={msg.id}
