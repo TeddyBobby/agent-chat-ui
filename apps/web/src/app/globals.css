@@ -76,6 +76,22 @@
   background-size: 200% 100%;
 }
 
+/* ── Reduced motion ── */
+/* Respect users who prefer minimal motion: collapse animations and
+   transitions to near-instant, and force instant programmatic scrolling.
+   Applies to both the hand-written keyframe utilities above and Tailwind's
+   built-in animate-spin / animate-pulse classes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Typography ── */
 pre {
   border-radius: 0.625rem !important;

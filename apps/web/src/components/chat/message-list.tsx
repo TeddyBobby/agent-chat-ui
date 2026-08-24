@@ -18,7 +18,11 @@ export function MessageList({ messages, streaming }: MessageListProps) {
 
   const scrollToBottom = useCallback((smooth = false) => {
     programmaticRef.current = true;
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior = smooth && !prefersReducedMotion ? 'smooth' : 'instant';
+    bottomRef.current?.scrollIntoView({ behavior });
     if (smooth) {
       setTimeout(() => { programmaticRef.current = false; }, 500);
     } else {
