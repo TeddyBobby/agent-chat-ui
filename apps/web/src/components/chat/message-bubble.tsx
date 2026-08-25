@@ -12,6 +12,7 @@ import {
   reconcileToolSummary,
   type ToolSummaryView,
 } from './tool-call-state';
+import { reconcileStreamValue, type StreamRenderState } from './stream-throttle';
 import { AgentMark } from './agent-mark';
 import {
   attachmentExtension,
@@ -196,6 +197,36 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
     [message.content]
   );
 
+  // 流式期间节流 markdown 渲染：remark 解析 + rehype 语法高亮对长回复代价很高，
+  // 逐 token 重跑会卡顿。这里合并高频 delta，并保证结束后立即落定最终内容。
+  const [renderedContent, setRenderedContent] = useState<StreamRenderState>(
+    () => ({ value: cleanContent, since: Date.now() }),
+  );
+  const renderedContentRef = useRef(renderedContent);
+
+  useEffect(() => {
+    if (!streaming) {
+      if (renderedContentRef.current.value !== cleanContent) {
+        renderedContentRef.current = { value: cleanContent, since: Date.now() };
+        setRenderedContent(renderedContentRef.current);
+      }
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const update = () => {
+      const transition = reconcileStreamValue(renderedContentRef.current, cleanContent, Date.now());
+      if (transition.view !== renderedContentRef.current) {
+        renderedContentRef.current = transition.view;
+        setRenderedContent(transition.view);
+      }
+      if (transition.retryIn) timer = setTimeout(update, transition.retryIn);
+    };
+    update();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [cleanContent, streaming]);
+
   const hasMarkdown = cleanContent.length > 0;
 
   return (
@@ -312,7 +343,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                   },
                 }}
               >
-                {cleanContent}
+                {renderedContent.value}
               </ReactMarkdown>
             </div>
           ) : !files.length && totalTools > 0 && completedTools === 0 ? (
