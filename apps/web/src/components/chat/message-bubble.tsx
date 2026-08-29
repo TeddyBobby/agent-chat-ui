@@ -20,7 +20,10 @@ import {
   PREVIEWABLE_ATTACHMENT_EXTENSIONS,
 } from './attachment-message';
 
-// ── Code block copy ──
+// ── Code block copy & collapse ──
+
+// 超过该行数的代码块在非流式状态下默认折叠，避免单条回复里的长代码把对话顶出视口。
+const MAX_CODE_LINES = 20;
 
 function extractLanguage(className?: string): string | null {
   if (!className) return null;
@@ -28,7 +31,7 @@ function extractLanguage(className?: string): string | null {
   return match ? match[1] : null;
 }
 
-function CodeBlockHeader({ language, codeText }: { language: string | null; codeText: string }) {
+function CodeBlockHeader({ language, codeText, lineCount }: { language: string | null; codeText: string; lineCount?: number }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -53,8 +56,13 @@ function CodeBlockHeader({ language, codeText }: { language: string | null; code
 
   return (
     <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 dark:bg-zinc-800/80 border-b border-gray-200 dark:border-zinc-700/50 rounded-t-[0.625rem]">
-      <span className="text-[10px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
-        {language || 'code'}
+      <span className="flex items-center gap-2 text-[10px] font-medium text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
+        <span>{language || 'code'}</span>
+        {typeof lineCount === 'number' && lineCount > 0 && (
+          <span className="normal-case font-normal tracking-normal text-gray-400 dark:text-zinc-500">
+            {lineCount} 行
+          </span>
+        )}
       </span>
       <button
         onClick={handleCopy}
@@ -122,6 +130,50 @@ function extractTextContent(children: React.ReactNode): string {
     return extractTextContent((children as any).props.children);
   }
   return '';
+}
+
+function CodeBlock({
+  children,
+  streaming,
+  ...preProps
+}: { children: React.ReactNode; streaming?: boolean } & React.HTMLAttributes<HTMLPreElement>) {
+  const codeChild = extractCodeChild(children);
+  const lang = codeChild?.lang ?? null;
+  const codeText = codeChild?.text ?? '';
+  const lineCount = codeText ? codeText.split('\n').length : 0;
+  const collapsible = !streaming && lineCount > MAX_CODE_LINES;
+  const [expanded, setExpanded] = useState(false);
+  const collapsed = collapsible && !expanded;
+
+  return (
+    <div className="my-2">
+      <CodeBlockHeader language={lang} codeText={codeText} lineCount={lineCount} />
+      <div className={collapsed ? 'relative max-h-[360px] overflow-hidden' : undefined}>
+        <pre
+          className={`!mt-0 !rounded-t-none${collapsible ? ' !mb-0 !rounded-b-none !border-b-0' : ''}`}
+          {...preProps}
+        >
+          {children}
+        </pre>
+        {collapsed && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#f3f4f6] to-transparent dark:from-[#0d0d10]"
+          />
+        )}
+      </div>
+      {collapsible && (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          aria-expanded={!collapsed}
+          className="block w-full rounded-b-[0.625rem] border border-t-0 border-gray-200 bg-gray-100 py-1.5 text-center text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-200/70 hover:text-gray-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        >
+          {collapsed ? `展开全部 ${lineCount} 行` : '收起'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 interface MessageBubbleProps {
@@ -320,20 +372,10 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                       {children}
                     </a>
                   ),
-                  pre: ({ children, ...props }) => {
-                    const codeChild = extractCodeChild(children);
-                    const lang = codeChild?.lang ?? null;
-                    const codeText = codeChild?.text ?? '';
-                    return (
-                      <div className="my-2">
-                        <CodeBlockHeader language={lang} codeText={codeText} />
-                        <pre className="!mt-0 !rounded-t-none" {...props}>
-                          {children}
-                        </pre>
-                      </div>
-                    );
-                  },
-                  code: ({ children, className, ...props }) => {
+                  pre: ({ node: _node, children, ...props }) => (
+                    <CodeBlock streaming={streaming} {...props}>{children}</CodeBlock>
+                  ),
+                  code: ({ node: _node, children, className, ...props }) => {
                     // Inline code (no language class from rehype-highlight)
                     if (!className?.includes('hljs')) {
                       return <code className={className} {...props}>{children}</code>;
