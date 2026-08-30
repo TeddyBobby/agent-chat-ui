@@ -375,6 +375,11 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                   pre: ({ node: _node, children, ...props }) => (
                     <CodeBlock streaming={streaming} {...props}>{children}</CodeBlock>
                   ),
+                  table: ({ node: _node, children, ...props }) => (
+                    <div className="overflow-x-auto">
+                      <table {...props}>{children}</table>
+                    </div>
+                  ),
                   code: ({ node: _node, children, className, ...props }) => {
                     // Inline code (no language class from rehype-highlight)
                     if (!className?.includes('hljs')) {

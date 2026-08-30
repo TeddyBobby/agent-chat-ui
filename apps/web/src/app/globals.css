@@ -148,6 +148,10 @@ pre code {
   color: var(--md-body);
   font-size: 0.8125rem;
   line-height: 1.65;
+  /* Agent 输出里常见无空格长 token（文件路径、URL、命令行日志）。默认在
+     空格处折行，遇到超长 token 会把消息气泡撑破或溢出视口，这里允许在
+     任意位置断行，避免横向溢出。 */
+  overflow-wrap: anywhere;
 }
 
 .dark .prose {
@@ -234,6 +238,56 @@ pre code {
 
 .dark .prose tbody tr:hover {
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── GFM task lists ── */
+/* remark-gfm 把 `- [ ]` / `- [x]` 渲染成禁用状态的 checkbox，默认是浏览器
+   原生样式，与整体设计不搭。这里重绘成 indigo 主题的勾选框。 */
+.prose ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+
+.prose li.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.prose li.task-list-item > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.125rem 0 0;
+  flex-shrink: 0;
+  border: 1.5px solid var(--md-border);
+  border-radius: 0.25rem;
+  background: transparent;
+  position: relative;
+  cursor: default;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.prose li.task-list-item > input[type="checkbox"]:checked {
+  background: var(--md-accent);
+  border-color: var(--md-accent);
+}
+
+.prose li.task-list-item > input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.dark .prose li.task-list-item > input[type="checkbox"]:checked::after {
+  border-color: #09090b;
 }
 
 /* ── Workspace file preview ── */
