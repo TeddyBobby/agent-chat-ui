@@ -427,8 +427,8 @@ export class PiAgent {
     const summaryPrompt =
       `Summarize the following conversation into a concise context summary. ` +
       `Keep all important facts, decisions, file changes, and error fixes. ` +
-      `Format as bullet points. Be brief — this is for context compression, not a full report.\\n\\n` +
-      middle.map(m => `[${m.role}] ${(m.content || '').slice(0, 2000)}`).join("\\n\\n");
+      `Format as bullet points. Be brief — this is for context compression, not a full report.\n\n` +
+      middle.map(m => `[${m.role}] ${(m.content || '').slice(0, 2000)}`).join("\n\n");
 
     try {
       const body = {
@@ -441,7 +441,7 @@ export class PiAgent {
       const hdrs = new Headers();
       hdrs.set("Content-Type", "application/json");
       if (this.config.apiKey) {
-        hdrs.set("Authorization", `Bearer ${this.config.apiKey.replace(/[^\\x00-\\x7F]/g, "")}`);
+        hdrs.set("Authorization", `Bearer ${this.config.apiKey.replace(/[^\x00-\x7F]/g, "")}`);
       }
 
       const hasExplicitPath = /\/(responses|chat\/completions)$/.test(this.config.baseURL || "");
@@ -471,7 +471,7 @@ export class PiAgent {
       result.push({
         role: "user",
         content:
-          `[上下文摘要 — 以下是之前对话的关键信息，不是当前指令]\\n${summary}\\n\\n` +
+          `[上下文摘要 — 以下是之前对话的关键信息，不是当前指令]\n${summary}\n\n` +
           `--- 继续对话 ---`,
       });
       result.push(...tail);
