@@ -216,8 +216,11 @@ export const ALL_TOOLS: Tool[] = createTools(process.cwd());
 
 // ---- 辅助 ----
 function safeRegex(p: string): RegExp {
-  try { return new RegExp(p, "gi"); } catch {
-    return new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  // 不能用 g 标志：带 g 的正则在多次 .test() 之间共享 lastIndex 状态，
+  // 会让 search_code 在处理不同行时从上次匹配位置继续搜索，从而静默跳过匹配行。
+  // search_code 对每行只调用一次 test()，无需全局标志（见 search-tool.test.ts 回归测试）。
+  try { return new RegExp(p, "i"); } catch {
+    return new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
   }
 }
 
