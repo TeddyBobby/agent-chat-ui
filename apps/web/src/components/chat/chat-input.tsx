@@ -116,7 +116,10 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // 输入法（中文/日文等 IME）组合期间，回车用于确认候选词而非提交消息。
+    // 不拦截会出现在拼音候选未上屏时就误发送、打断输入。
+    // 参考: https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/isComposing
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSubmit();
     }
