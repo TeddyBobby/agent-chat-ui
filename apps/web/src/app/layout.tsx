@@ -15,13 +15,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: '{{Pi}}Agent',
+  title: 'PiAgent',
   description: 'AI coding agent — read, write, search, execute. Powered by your LLM.',
   keywords: ['AI', 'agent', 'coding', 'LLM', 'DeepSeek', 'Next.js'],
   authors: [{ name: 'TeddyBobby' }],
   robots: { index: true, follow: true },
   openGraph: {
-    title: '{{Pi}}Agent',
+    title: 'PiAgent',
     description: 'AI coding agent — read, write, search, execute. Powered by your LLM.',
     type: 'website',
     siteName: 'PiAgent',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: '{{Pi}}Agent',
+    title: 'PiAgent',
     description: 'AI coding agent — read, write, search, execute. Powered by your LLM.',
   },
   applicationName: 'PiAgent',

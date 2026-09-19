@@ -21,7 +21,7 @@ export function LandingPage({ onNewChat, onSelectModel }: LandingPageProps) {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-zinc-100 mb-2 tracking-tight">
-            {'{{Pi}}'}Agent
+            PiAgent
           </h1>
           <p className="text-[14px] text-gray-500 dark:text-zinc-400 leading-relaxed max-w-md mx-auto">
             AI 编程助手 —— 对话式操作文件系统，读代码、写文件、执行命令，让 AI 直接在项目里工作

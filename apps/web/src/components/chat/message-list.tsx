@@ -77,7 +77,7 @@ export function MessageList({ messages, streaming }: MessageListProps) {
               <path d="M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-zinc-200 mb-1.5 tracking-tight">{'{{Pi}}'}Agent</h2>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-zinc-200 mb-1.5 tracking-tight">PiAgent</h2>
           <p className="text-[13px] text-gray-400 dark:text-zinc-500 leading-relaxed">
             选择一个模型和项目目录，然后告诉我你想做什么。
           </p>
