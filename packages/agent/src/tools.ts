@@ -53,7 +53,9 @@ export function createTools(workdir: string): Tool[] {
       if (!fs.existsSync(fp)) return `错误：文件不存在 —— ${relativePath(fp)}`;
 
       const lines = fs.readFileSync(fp, "utf-8").split("\n");
-      const end = Math.min(offset + limit, lines.length);
+      // `limit` 是「读取行数」：第 offset 行起、共 limit 行。end 必须用 offset-1+limit，
+      // 否则 slice(offset-1, offset+limit) 会多读一行（off-by-one），浪费上下文 token。
+      const end = Math.min(offset - 1 + limit, lines.length);
       const result = lines.slice(offset - 1, end);
       const header = `[${relativePath(fp)}] L${offset}-L${end} / ${lines.length} 行`;
       return [header, ...result.map((l, i) => `${offset + i}: ${l}`)].join("\n");
@@ -152,9 +154,14 @@ export function createTools(workdir: string): Tool[] {
 
       const results: string[] = [];
       const re = safeRegex(pattern);
+      // `done` 标记：search_code 的结果预算为 50 条。旧实现只在单次 walk 调用内 `return`，
+      // 无法阻止父目录继续递归兄弟目录，导致结果数突破 50 且继续扫描剩余文件、浪费上下文。
+      let done = false;
 
       function walk(d: string) {
+        if (done) return;
         for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          if (done) return;
           const full = path.join(d, e.name);
           if (e.isDirectory()) {
             if (!e.name.startsWith(".") && e.name !== "node_modules") walk(full);
@@ -165,7 +172,10 @@ export function createTools(workdir: string): Tool[] {
               for (let i = 0; i < lines.length; i++) {
                 if (re.test(lines[i])) {
                   results.push(`${relativePath(full)}:${i + 1}: ${lines[i].trim().slice(0, 120)}`);
-                  if (results.length >= 50) return;
+                  if (results.length >= 50) {
+                    done = true;
+                    return;
+                  }
                 }
               }
             } catch { /* skip binary */ }
