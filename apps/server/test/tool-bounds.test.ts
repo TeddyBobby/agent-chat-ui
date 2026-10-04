@@ -50,6 +50,34 @@ test("read_file returns exactly `limit` lines", async () => {
   assert.doesNotMatch(fromMiddle, /8: line8/);
 });
 
+test("read_file clamps invalid offset/limit to safe bounds", async () => {
+  const tools = createTools(workspace);
+  const read = tools.find((tool) => tool.name === "read_file");
+  assert.ok(read, "read_file tool should exist");
+
+  // offset=0 / 负数 → 应从第一行开始读，而不是 slice(-1,…) 从最后一行开始。
+  const zero = await read!.run({ path: "sample.txt", offset: 0, limit: 3 });
+  assert.match(zero, /L1-L3 \/ 10 行/);
+  assert.doesNotMatch(zero, /10: line10/);
+
+  const negative = await read!.run({ path: "sample.txt", offset: -2, limit: 3 });
+  assert.match(negative, /L1-L3 \/ 10 行/);
+
+  // limit=0 / 负数 → 至少读一行，而不是返回空结果。
+  const zeroLimit = await read!.run({ path: "sample.txt", offset: 2, limit: 0 });
+  assert.match(zeroLimit, /L2-L2 \/ 10 行/);
+  assert.match(zeroLimit, /2: line2/);
+
+  // 非数字 → 回退默认（offset 1 / limit 200，读到文件末尾）。
+  const garbage = await read!.run({ path: "sample.txt", offset: "abc", limit: "xyz" });
+  assert.match(garbage, /L1-L10 \/ 10 行/);
+  assert.match(garbage, /10: line10/);
+
+  // offset 超过文件行数 → 明确报错，而不是返回空结果。
+  const beyond = await read!.run({ path: "sample.txt", offset: 999 });
+  assert.match(beyond, /offset 999 超出文件行数（10 行）/);
+});
+
 test("search_code caps results at 50 across directories", async () => {
   const tools = createTools(workspace);
   const search = tools.find((tool) => tool.name === "search_code");

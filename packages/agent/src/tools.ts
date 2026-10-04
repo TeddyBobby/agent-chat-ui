@@ -47,14 +47,25 @@ export function createTools(workdir: string): Tool[] {
     },
     async run(args) {
       const fp = resolvePath(String(args.path));
-      const offset = Number(args.offset ?? 1);
-      const limit = Number(args.limit ?? 200);
 
       if (!fs.existsSync(fp)) return `错误：文件不存在 —— ${relativePath(fp)}`;
 
       const lines = fs.readFileSync(fp, "utf-8").split("\n");
       // `limit` 是「读取行数」：第 offset 行起、共 limit 行。end 必须用 offset-1+limit，
       // 否则 slice(offset-1, offset+limit) 会多读一行（off-by-one），浪费上下文 token。
+      //
+      // LLM 生成的参数不可信：offset/limit 可能是 0、负数或非数字，直接喂给 slice 会
+      // 静默返回错误范围（offset=0 会让 slice(-1,…) 从最后一行开始读）。这里先归整为
+      // 正整数，offset 超出文件行数时明确报错，而不是返回空结果误导模型。
+      const rawOffset = Number(args.offset ?? 1);
+      const rawLimit = Number(args.limit ?? 200);
+      const offset = Number.isFinite(rawOffset) ? Math.max(1, Math.trunc(rawOffset)) : 1;
+      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.trunc(rawLimit)) : 200;
+
+      if (offset > lines.length) {
+        return `错误：offset ${offset} 超出文件行数（${lines.length} 行）—— ${relativePath(fp)}`;
+      }
+
       const end = Math.min(offset - 1 + limit, lines.length);
       const result = lines.slice(offset - 1, end);
       const header = `[${relativePath(fp)}] L${offset}-L${end} / ${lines.length} 行`;
