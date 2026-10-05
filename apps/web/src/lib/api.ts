@@ -52,6 +52,8 @@ export const conversationApi = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  cancelRun: (runId: string) =>
+    request<Run>(`/v1/runs/${encodeURIComponent(runId)}/cancel`, { method: "POST" }),
   importLegacy: (conversations: Conversation[]) =>
     request<{ imported: string[] }>("/v1/import", {
       method: "POST",

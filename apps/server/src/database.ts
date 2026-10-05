@@ -355,6 +355,9 @@ export class AppDatabase {
     } else if (event.type === "run.failed") {
       this.db.prepare("UPDATE messages SET content = content || ? WHERE id = ?")
         .run(`\n\n❌ ${event.message}`, run.assistantMessageId);
+    } else if (event.type === "run.cancelled") {
+      this.db.prepare("UPDATE messages SET content = content || ? WHERE id = ?")
+        .run(`\n\n🛑 已停止`, run.assistantMessageId);
     } else if (event.type === "tool.started") {
       this.db.prepare(`
         INSERT OR REPLACE INTO tool_calls (id, message_id, name, args_json, status, created_at)

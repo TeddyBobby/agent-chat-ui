@@ -13,6 +13,7 @@ import {
 
 interface ChatInputProps {
   onSend: (content: string) => void;
+  onStop?: () => void;
   onModelChange: (modelId: string) => void;
   selectedModel: string;
   apiKey: string;
@@ -40,7 +41,7 @@ interface AttachedFile {
 }
 
 export function ChatInput({
-  onSend, onModelChange, selectedModel, apiKey, onApiKeyChange,
+  onSend, onStop, onModelChange, selectedModel, apiKey, onApiKeyChange,
   apiKeyConfigured, credentialSaving, credentialError, onApiKeyCommit, onLogout, baseUrl, onBaseUrlChange,
   workdir, onWorkdirChange, disabled, contextTokens = 0, contextLimit = 128000, figmaPlacement = false,
   draft,
@@ -382,15 +383,29 @@ export function ChatInput({
               </span>
             )}
 
-            <button
-              onClick={handleSubmit}
-              disabled={disabled || (!input.trim() && files.length === 0)}
-              aria-label="发送消息"
-              className="ml-auto flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-[#ececed] transition-all hover:bg-[#dedede] disabled:cursor-not-allowed dark:disabled:bg-zinc-800"
-              title="发送"
-            >
-              <img className="h-[10px] w-[11px] -rotate-90" src="/figma/arrow-up.svg" alt="" />
-            </button>
+            {disabled && onStop ? (
+              <button
+                type="button"
+                onClick={onStop}
+                aria-label="停止生成"
+                className="ml-auto flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-[#ececed] transition-all hover:bg-[#dedede] dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                title="停止生成"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-gray-600 dark:text-zinc-300">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={disabled || (!input.trim() && files.length === 0)}
+                aria-label="发送消息"
+                className="ml-auto flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-[#ececed] transition-all hover:bg-[#dedede] disabled:cursor-not-allowed dark:disabled:bg-zinc-800"
+                title="发送"
+              >
+                <img className="h-[10px] w-[11px] -rotate-90" src="/figma/arrow-up.svg" alt="" />
+              </button>
+            )}
           </div>
         </div>
 

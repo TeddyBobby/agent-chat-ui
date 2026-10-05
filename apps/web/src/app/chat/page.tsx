@@ -99,6 +99,7 @@ export default function ChatPage() {
           };
         }
         if (event.type === "run.failed") return { ...message, content: `${message.content}\n\n---\n**运行失败:** ${event.message}` };
+        if (event.type === "run.cancelled") return { ...message, content: `${message.content}\n\n🛑 已停止` };
         return message;
       });
       const terminal = isTerminalRunEvent(event);
@@ -227,6 +228,16 @@ export default function ChatPage() {
     setCredentialError("");
   };
 
+  const cancelActiveRun = async () => {
+    const run = activeConversation?.activeRun;
+    if (!run) return;
+    // 乐观移除 activeRun，立即恢复输入框可用，不必等待 SSE 回传 run.cancelled
+    setConversations((current) => current.map((conversation) =>
+      conversation.id !== run.conversationId ? conversation : { ...conversation, activeRun: undefined },
+    ));
+    await conversationApi.cancelRun(run.id).catch(() => undefined);
+  };
+
   const updateConversation = async (id: string, updates: { workdir?: string; archived?: boolean }) => {
     const updated = await conversationApi.update(id, updates);
     setConversations((current) => current.map((conversation) => conversation.id === id ? updated : conversation));
@@ -303,6 +314,7 @@ export default function ChatPage() {
         </ErrorBoundary>
         <ChatInput
           onSend={(content) => void handleSend(content)}
+          onStop={() => void cancelActiveRun()}
           onModelChange={setModel}
           selectedModel={model}
           apiKey={apiKey}
