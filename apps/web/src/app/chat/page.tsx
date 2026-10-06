@@ -98,8 +98,8 @@ export default function ChatPage() {
               : tool),
           };
         }
-        if (event.type === "run.failed") return { ...message, content: `${message.content}\n\n---\n**运行失败:** ${event.message}` };
-        if (event.type === "run.cancelled") return { ...message, content: `${message.content}\n\n🛑 已停止` };
+        if (event.type === "run.failed") return { ...message, content: `${message.content}\n\n---\n**运行失败：** ${event.message}` };
+        if (event.type === "run.cancelled") return { ...message, content: `${message.content}\n\n---\n**已停止**` };
         return message;
       });
       const terminal = isTerminalRunEvent(event);
