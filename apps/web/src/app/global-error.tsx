@@ -13,9 +13,9 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   }, [error]);
 
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased">
-        <div className="text-center max-w-md px-4">
+        <div role="alert" className="text-center max-w-md px-4">
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-red-500/20">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -24,14 +24,14 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-            Critical Error
+            严重错误
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-6">
-            The application encountered a critical error and cannot continue. This may be caused by a temporary issue — please try reloading.
+            应用遇到严重错误，无法继续运行。这可能是临时问题——请尝试重新加载。
           </p>
           {error.digest && (
             <p className="text-[11px] font-mono text-gray-400 dark:text-gray-600 mb-4">
-              Error ID: {error.digest}
+              错误 ID：{error.digest}
             </p>
           )}
           <button
@@ -42,7 +42,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
-            Reload
+            重新加载
           </button>
         </div>
       </body>

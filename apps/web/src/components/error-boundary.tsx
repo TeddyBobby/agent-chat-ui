@@ -41,7 +41,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="flex flex-col items-center justify-center py-12 px-4">
+        <div role="alert" className="flex flex-col items-center justify-center py-12 px-4">
           <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-red-500,#ef4444)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -50,10 +50,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </svg>
           </div>
           <h3 className="text-sm font-semibold text-gray-800 dark:text-zinc-200 mb-1">
-            Display Error
+            显示错误
           </h3>
           <p className="text-xs text-gray-400 dark:text-zinc-500 text-center max-w-xs mb-4 leading-relaxed">
-            This section failed to render. Your data is safe — try reloading.
+            这部分内容渲染失败。你的数据是安全的——请尝试刷新。
           </p>
           <button
             type="button"
@@ -64,11 +64,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
-            Retry
+            重试
           </button>
           <details className="mt-4 max-w-md w-full">
             <summary className="text-[10px] text-gray-400 dark:text-zinc-600 cursor-pointer hover:text-gray-500 dark:hover:text-zinc-400 text-center">
-              Error details
+              错误详情
             </summary>
             <pre className="mt-2 p-3 rounded-md bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-[10px] font-mono text-gray-500 dark:text-zinc-400 whitespace-pre-wrap overflow-auto max-h-40">
               {this.state.error.message}
