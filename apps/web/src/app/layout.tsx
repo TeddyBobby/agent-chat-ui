@@ -16,13 +16,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'PiAgent',
-  description: 'AI coding agent — read, write, search, execute. Powered by your LLM.',
+  description: '本地优先的 AI 编程助手 —— 读取、编写、搜索、执行。由你的 LLM 驱动。',
   keywords: ['AI', 'agent', 'coding', 'LLM', 'DeepSeek', 'Next.js'],
   authors: [{ name: 'TeddyBobby' }],
   robots: { index: true, follow: true },
   openGraph: {
     title: 'PiAgent',
-    description: 'AI coding agent — read, write, search, execute. Powered by your LLM.',
+    description: '本地优先的 AI 编程助手 —— 读取、编写、搜索、执行。由你的 LLM 驱动。',
     type: 'website',
     siteName: 'PiAgent',
     locale: 'zh_CN',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'PiAgent',
-    description: 'AI coding agent — read, write, search, execute. Powered by your LLM.',
+    description: '本地优先的 AI 编程助手 —— 读取、编写、搜索、执行。由你的 LLM 驱动。',
   },
   applicationName: 'PiAgent',
   appleWebApp: { capable: true, title: 'PiAgent', statusBarStyle: 'default' },

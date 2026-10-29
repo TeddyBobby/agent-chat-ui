@@ -1,9 +1,9 @@
 const TOOL_ACTIONS: Record<string, string> = {
-  read_file: 'Read',
-  write_file: 'Write',
-  edit_file: 'Edit',
-  search_code: 'Search',
-  run_command: 'Run',
+  read_file: '读取',
+  write_file: '写入',
+  edit_file: '编辑',
+  search_code: '搜索',
+  run_command: '运行',
 };
 
 interface ToolSummaryItem {
@@ -47,11 +47,11 @@ export function getToolSummarySnapshot(
   if (!running) {
     if (taskRunning && tools.length > 0) {
       return {
-        text: `Processing tool results · ${completed}/${tools.length}`,
+        text: `处理工具结果 · ${completed}/${tools.length}`,
         running: true,
       };
     }
-    return { text: `${completed}/${tools.length} tools`, running: false };
+    return { text: `${completed}/${tools.length} 个工具`, running: false };
   }
 
   const action = TOOL_ACTIONS[running.name] || running.name;
@@ -63,7 +63,7 @@ export function getToolSummarySnapshot(
         ? String(running.args.pattern)
         : '';
   return {
-    text: `Executing ${action}${target ? ` · ${target}` : ''} · ${completed}/${tools.length}`,
+    text: `执行 ${action}${target ? ` · ${target}` : ''} · ${completed}/${tools.length}`,
     running: true,
   };
 }

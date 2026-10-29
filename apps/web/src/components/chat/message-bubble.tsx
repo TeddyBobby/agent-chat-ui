@@ -74,7 +74,7 @@ function CodeBlockHeader({ language, codeText, lineCount }: { language: string |
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span className="text-emerald-500">Copied</span>
+            <span className="text-emerald-500">已复制</span>
           </>
         ) : (
           <>
@@ -82,7 +82,7 @@ function CodeBlockHeader({ language, codeText, lineCount }: { language: string |
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
-            <span>Copy</span>
+            <span>复制</span>
           </>
         )}
       </button>
@@ -338,7 +338,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                             </div>
                           ))}
                           {lines.length > 50 && (
-                            <div className="text-gray-400 dark:text-zinc-600 mt-1">... {lines.length - 50} more lines</div>
+                            <div className="text-gray-400 dark:text-zinc-600 mt-1">... 更多 {lines.length - 50} 行</div>
                           )}
                         </pre>
                       </div>
@@ -351,7 +351,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
 
           {/* Message text */}
           {isUser ? (
-            cleanContent && !/^Attached \d+ file/.test(cleanContent) ? (
+            cleanContent && !/^已附加 \d+ 个文件/.test(cleanContent) ? (
               <div className="text-[14px] leading-relaxed text-gray-800 dark:text-zinc-200 whitespace-pre-wrap break-words">
                 {cleanContent}
               </div>
@@ -400,7 +400,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.15s' }} />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.3s' }} />
               </div>
-              <span className="text-[11px] text-gray-400 dark:text-zinc-500">Working...</span>
+              <span className="text-[11px] text-gray-400 dark:text-zinc-500">执行中...</span>
             </div>
           ) : streaming && !hasMarkdown && totalTools === 0 ? (
             <div className="flex items-center gap-2">
@@ -409,7 +409,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.15s' }} />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#65d45e]" style={{ animationDelay: '0.3s' }} />
               </div>
-              <span className="text-[11px] text-gray-400 dark:text-zinc-500">Thinking...</span>
+              <span className="text-[11px] text-gray-400 dark:text-zinc-500">思考中...</span>
             </div>
           ) : null}
 

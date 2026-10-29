@@ -32,7 +32,7 @@ export function composeAttachmentMessage(
 ) {
   if (files.length === 0) return visibleContent.trim();
 
-  const fallback = `Attached ${files.length} file(s)`;
+  const fallback = `已附加 ${files.length} 个文件`;
   const blocks = files.map((file) => {
     const params = new URLSearchParams({
       name: file.name,

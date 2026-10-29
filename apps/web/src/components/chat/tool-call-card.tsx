@@ -8,11 +8,11 @@ interface ToolCallCardProps {
 }
 
 const TOOL_LABELS: Record<string, string> = {
-  read_file: 'Read',
-  write_file: 'Write',
-  edit_file: 'Edit',
-  search_code: 'Search',
-  run_command: 'Run',
+  read_file: '读取',
+  write_file: '写入',
+  edit_file: '编辑',
+  search_code: '搜索',
+  run_command: '运行',
 };
 
 export function ToolCallCard({ toolCall }: ToolCallCardProps) {
@@ -72,7 +72,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
           : isDone ? 'text-emerald-500'
           : 'text-red-500'
         }`}>
-          {isRunning ? '运行中' : isDone ? 'done' : 'error'}
+          {isRunning ? '运行中' : isDone ? '完成' : '错误'}
         </span>
         <svg
           width="12"

@@ -14,7 +14,7 @@ test('the collapsed summary names the currently running tool and target', () => 
       { name: 'read_file', status: 'completed' },
       { name: 'edit_file', status: 'running', args: { path: '/project/src/page.tsx' } },
     ]),
-    'Executing Edit · page.tsx · 1/2',
+    '执行 编辑 · page.tsx · 1/2',
   );
 });
 
@@ -24,7 +24,7 @@ test('the collapsed summary returns to progress after tools complete', () => {
       { name: 'read_file', status: 'completed' },
       { name: 'edit_file', status: 'completed' },
     ]),
-    '2/2 tools',
+    '2/2 个工具',
   );
 });
 
@@ -35,7 +35,7 @@ test('completed tools keep showing task activity until the run actually ends', (
       { name: 'edit_file', status: 'completed' },
     ], true),
     {
-      text: 'Processing tool results · 2/2',
+      text: '处理工具结果 · 2/2',
       running: true,
     },
   );
@@ -43,13 +43,13 @@ test('completed tools keep showing task activity until the run actually ends', (
 
 test('a fast completion keeps the running summary visible for at least 400ms', () => {
   const running: ToolSummaryView = {
-    text: 'Executing Read · page.tsx · 0/1',
+    text: '执行 读取 · page.tsx · 0/1',
     running: true,
     since: 1_000,
   };
   const transition = reconcileToolSummary(
     running,
-    { text: '1/1 tools', running: false },
+    { text: '1/1 个工具', running: false },
     1_050,
   );
   assert.deepEqual(transition.view, running);
@@ -58,13 +58,13 @@ test('a fast completion keeps the running summary visible for at least 400ms', (
 
 test('rapid tool changes are coalesced instead of changing every frame', () => {
   const current: ToolSummaryView = {
-    text: 'Executing Read · page.tsx · 0/2',
+    text: '执行 读取 · page.tsx · 0/2',
     running: true,
     since: 1_000,
   };
   const transition = reconcileToolSummary(
     current,
-    { text: 'Executing Edit · page.tsx · 1/2', running: true },
+    { text: '执行 编辑 · page.tsx · 1/2', running: true },
     1_080,
   );
   assert.deepEqual(transition.view, current);
