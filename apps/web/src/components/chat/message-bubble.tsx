@@ -303,7 +303,7 @@ export function MessageBubble({ message, streaming }: MessageBubbleProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="text-[11px] font-medium text-gray-400 dark:text-zinc-500 mb-1 tracking-wide">
-            {isUser ? '你' : 'MOAgent'}
+            {isUser ? '你' : 'PiAgent'}
           </div>
 
           {/* File attachments */}

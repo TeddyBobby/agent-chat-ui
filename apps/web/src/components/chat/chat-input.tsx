@@ -69,10 +69,10 @@ export function ChatInput({
       });
       const data = await res.json();
       setTestResult(data);
-    } catch (e: any) {
+    } catch (e) {
       setTestResult({
         success: false, endpoint: '', status: 0, contentType: '',
-        responsePreview: `请求失败: ${e.message}`, duration: 0,
+        responsePreview: `请求失败: ${e instanceof Error ? e.message : String(e)}`, duration: 0,
         diagnosis: ['前端请求后端连接测试接口失败'],
       });
     } finally {
