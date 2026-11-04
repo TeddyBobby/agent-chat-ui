@@ -13,6 +13,44 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
+// ---- 文件读取防护 ----
+// coding agent 常被指向真实项目目录，里面混有二进制资源（图片/字体/编译产物）
+// 和大文件（minify 后的 bundle、lockfile、日志）。旧实现直接 readFileSync 全文：
+// 1) 二进制内容解码成乱码喂给模型，浪费上下文 token；
+// 2) 超大文件一次性读入内存，可能撑爆进程。
+// 这里统一做「二进制检测 + 大小上限」：二进制明确报错/跳过，超大文件截断或跳过。
+const MAX_READ_BYTES = 1_000_000;         // read_file 单次最多读取 1MB
+const MAX_SEARCH_FILE_BYTES = 256 * 1024; // search_code 对单个文件最多扫描 256KB
+const SEARCH_IGNORE_DIRS = new Set([
+  "node_modules", "dist", "build", "out", "release", "target",
+  "coverage", "__pycache__", "venv",
+]);
+
+function readTextPreview(
+  fp: string,
+  maxBytes: number,
+): { text: string; binary: boolean; truncated: boolean } {
+  const size = fs.statSync(fp).size;
+  const length = Math.min(size, maxBytes);
+  const fd = fs.openSync(fp, "r");
+  try {
+    const buffer = Buffer.alloc(length);
+    const bytesRead = fs.readSync(fd, buffer, 0, length, 0);
+    const chunk = buffer.subarray(0, bytesRead);
+    // 含 NUL 字节 → 二进制文件（图片、字体、可执行文件、UTF-16 文本等）
+    if (chunk.includes(0)) return { text: "", binary: true, truncated: false };
+    return { text: chunk.toString("utf8"), binary: false, truncated: size > maxBytes };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 // ==========================================================
 // 工厂函数：创建一组绑定到 workdir 的工具
 // ==========================================================
@@ -50,7 +88,13 @@ export function createTools(workdir: string): Tool[] {
 
       if (!fs.existsSync(fp)) return `错误：文件不存在 —— ${relativePath(fp)}`;
 
-      const lines = fs.readFileSync(fp, "utf-8").split("\n");
+      const size = fs.statSync(fp).size;
+      if (size === 0) return `[${relativePath(fp)}] 空文件 (0 行)`;
+
+      const { text, binary, truncated } = readTextPreview(fp, MAX_READ_BYTES);
+      if (binary) return `错误：无法读取二进制文件（${formatBytes(size)}）—— ${relativePath(fp)}`;
+
+      const lines = text.split("\n");
       // `limit` 是「读取行数」：第 offset 行起、共 limit 行。end 必须用 offset-1+limit，
       // 否则 slice(offset-1, offset+limit) 会多读一行（off-by-one），浪费上下文 token。
       //
@@ -68,7 +112,8 @@ export function createTools(workdir: string): Tool[] {
 
       const end = Math.min(offset - 1 + limit, lines.length);
       const result = lines.slice(offset - 1, end);
-      const header = `[${relativePath(fp)}] L${offset}-L${end} / ${lines.length} 行`;
+      const suffix = truncated ? `（文件 ${formatBytes(size)}，已截断至前 ${formatBytes(MAX_READ_BYTES)}）` : "";
+      const header = `[${relativePath(fp)}] L${offset}-L${end} / ${lines.length} 行${suffix}`;
       return [header, ...result.map((l, i) => `${offset + i}: ${l}`)].join("\n");
     },
   };
@@ -117,7 +162,16 @@ export function createTools(workdir: string): Tool[] {
 
       if (!fs.existsSync(fp)) return `错误：文件不存在 —— ${relativePath(fp)}`;
 
-      const content = fs.readFileSync(fp, "utf-8");
+      const size = fs.statSync(fp).size;
+      // 与 read_file 一致：edit_file 先整读进内存再查找替换，超大/二进制文件会撑爆进程
+      // 或把二进制解码成乱码写入。这里拒绝超限文件、二进制明确报错。
+      if (size > MAX_READ_BYTES) {
+        return `错误：文件过大（${formatBytes(size)}），edit_file 仅支持 ≤ ${formatBytes(MAX_READ_BYTES)} 的文件 —— ${relativePath(fp)}`;
+      }
+      const { text, binary } = readTextPreview(fp, MAX_READ_BYTES);
+      if (binary) return `错误：无法编辑二进制文件（${formatBytes(size)}）—— ${relativePath(fp)}`;
+
+      const content = text;
 
       let count = 0;
       let pos = 0;
@@ -175,11 +229,16 @@ export function createTools(workdir: string): Tool[] {
           if (done) return;
           const full = path.join(d, e.name);
           if (e.isDirectory()) {
-            if (!e.name.startsWith(".") && e.name !== "node_modules") walk(full);
+            if (!e.name.startsWith(".") && !SEARCH_IGNORE_DIRS.has(e.name)) walk(full);
           } else if (e.isFile()) {
             if (glob && !matchGlob(e.name, glob)) continue;
             try {
-              const lines = fs.readFileSync(full, "utf-8").split("\n");
+              const size = fs.statSync(full).size;
+              // 跳过超大文件（minify bundle、日志、二进制资源等）——源代码文件远小于此上限。
+              if (size === 0 || size > MAX_SEARCH_FILE_BYTES) continue;
+              const { text, binary } = readTextPreview(full, MAX_SEARCH_FILE_BYTES);
+              if (binary) continue;
+              const lines = text.split("\n");
               for (let i = 0; i < lines.length; i++) {
                 if (re.test(lines[i])) {
                   results.push(`${relativePath(full)}:${i + 1}: ${lines[i].trim().slice(0, 120)}`);
@@ -189,7 +248,7 @@ export function createTools(workdir: string): Tool[] {
                   }
                 }
               }
-            } catch { /* skip binary */ }
+            } catch { /* skip unreadable */ }
           }
         }
       }
